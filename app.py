@@ -5429,6 +5429,8 @@ def test_meta():
 
     if not numero_destino:
         return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
+    if not var1 or not var2:
+        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes completar las variables {{1}} y {{2}} para la plantilla de prueba."))
 
     id_telefono = (datos_bot.get("id_telefono") or ID_TELEFONO_DEFAULT).strip() or ID_TELEFONO_DEFAULT
     token_meta = (datos_bot.get("token_meta") or TOKEN_META_DEFAULT).strip() or TOKEN_META_DEFAULT
@@ -5464,7 +5466,14 @@ def test_meta():
         if status_code == 200:
             msg = f"✅ Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}."
         else:
-            msg = f"❌ Error Meta (HTTP {status_code}): {response_text}"
+            try:
+                error_data = resp.json()
+                error_info = error_data.get("error", {}) if isinstance(error_data, dict) else {}
+                error_code = error_info.get("code", status_code)
+                error_message = error_info.get("message") or response_text
+                msg = f"❌ Error Meta (código {error_code}, HTTP {status_code}): {error_message}"
+            except Exception:
+                msg = f"❌ Error Meta (HTTP {status_code}): {response_text}"
     except Exception as exc:
         msg = f"❌ Error de conexión al enviar la plantilla: {exc}"
 
