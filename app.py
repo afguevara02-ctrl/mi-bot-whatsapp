@@ -95,9 +95,17 @@ DEFAULT_CATALOGO = {
         "titulo": "Pack Completo de Cartillas de Finanzas",
         # Nombre EXACTO de la plantilla aprobada en Meta Business Manager
         "plantilla_info_meta": "info_finanzas_v1",
+        # texto_info_meta: cuerpo EXACTO que se copia a Meta Business Manager para la plantilla unica
+        # del producto. Este texto aparece en el textarea 'Texto plantilla unica de informacion para Meta'.
+        "texto_info_meta": """📚 *TRANSFORMA LA EDUCACIÓN FINANCIERA DE TUS ESTUDIANTES E HIJOS DESDE HOY* ✨
+
+Imagina *enseñarles a manejar el dinero* de forma fácil y práctica, y además *tener el sistema ideal organizado por edades y con acceso de por vida!* 💰👧👦
+
+👉 *¿Qué hace especial a este pack?*
+Con nuestro *Pack Completo de Cartillas de Finanzas desde primero de primaria hasta undécimo,* podrás guiarlos paso a paso y según su edad, para que desarrollen hábitos que les servirán para siempre. ✨ 100% *descargable e imprimible.*""",
         "precio_normal": "15000",
         "precio_descuento": "10000",
-        # link_video: URL publica del video demo (YouTube, Drive, CDN, /media/video.mp4)
+        # link_video: URL publica del video demo (YouTube, Drive, CDN)
         "link_video": "",  # TODO: reemplazar con URL real
         # link_pdf: URL publica del PDF demo
         "link_pdf": "",    # TODO: reemplazar con URL real
@@ -114,6 +122,12 @@ DEFAULT_CATALOGO = {
         "opcion": "2",
         "titulo": "Planeaciones Unificadas de Ingles",
         "plantilla_info_meta": "info_ingles_v1",
+        "texto_info_meta": """🇬🇧 *¡AHORRA CIENTOS DE HORAS EN TUS PLANEACIONES DE INGLÉS!* ✨
+
+Sabemos lo difícil que es encontrar material organizado, actualizado y que realmente capte la atención de los estudiantes. ¡Por eso creamos esta solución para ti! 👩‍🏫👨‍🏫
+
+👉 *¿Qué incluye este súper material?*
+Un *Pack Completo de Inglés* diseñado para facilitar tu labor docente. Actividades, guías y planeaciones listas para aplicar, adaptadas a los estándares educativos. ✨ Todo el material es *100% descargable, imprimible y con acceso de por vida.*""",
         "precio_normal": "20000",
         "precio_descuento": "15000",
         "link_video": "",  # TODO: reemplazar con URL real
@@ -128,6 +142,12 @@ DEFAULT_CATALOGO = {
         "opcion": "3",
         "titulo": "Guias de Biologia",
         "plantilla_info_meta": "info_biologia_v1",
+        "texto_info_meta": """🧬 *¡HAZ QUE TUS CLASES DE CIENCIAS Y BIOLOGÍA SEAN INOLVIDABLES!* 🌿
+
+Olvídate de la teoría aburrida y del tiempo perdido buscando recursos en internet. Despierta la curiosidad de tus estudiantes con material visual y práctico. 🔬🌎
+
+👉 *¿Qué te vas a llevar hoy?*
+El *Pack Completo de Biología* con guías didácticas, esquemas y actividades que facilitan el aprendizaje de forma interactiva. Todo organizado por temas para que solo tengas que elegir y enseñar. ✨ 100% descargable, imprimible y tuyo para siempre.""",
         "precio_normal": "12000",
         "precio_descuento": "10000",
         "link_video": "",  # TODO: reemplazar con URL real
@@ -138,6 +158,14 @@ DEFAULT_CATALOGO = {
         "mensajes": {}
     }
 }
+
+# Texto base para nuevos productos (plantilla genérica editable)
+TEXTO_INFO_META_BASE_NUEVO_PRODUCTO = """🚀 *¡DESCUBRE EL MEJOR MATERIAL PARA TUS CLASES DE [NOMBRE DEL PRODUCTO]!* ✨
+
+Diseñado específicamente para ahorrarte tiempo y potenciar el aprendizaje de tus estudiantes de forma práctica y divertida. 💡📚
+
+👉 *¿Qué hace especial a este pack?*
+Con nuestro *Pack Completo de [NOMBRE DEL PRODUCTO],* tendrás acceso inmediato a material listo para usar. ✨ *100% descargable, imprimible y con acceso de por vida.*"""
 
 DEFAULT_MENSAJES_PRODUCTO = {
     "bienvenida": "Hola, te comparto informacion de {titulo}.",
@@ -275,10 +303,21 @@ def obtener_catalogo_plantillas_meta():
     for clave, producto in (fuente_catalogo or {}).items():
         producto_id = str(producto.get("id", clave) or clave).strip()
         clave_info = f"info_{clave}"
+        # Usar texto_info_meta real del producto si existe; si no, usar plantilla generica
+        texto_info = str(producto.get("texto_info_meta", "") or "").strip()
+        if not texto_info:
+            titulo_p = producto.get("titulo", clave)
+            precio_p = producto.get("precio_normal", "")
+            precio_desc_p = producto.get("precio_descuento", "")
+            texto_info = f"Hola, te comparto informacion de {titulo_p}."
+            if precio_p:
+                texto_info += f"\n\nPrecio: ${precio_p}"
+            if precio_desc_p and precio_desc_p != precio_p:
+                texto_info += f"\nDescuento especial: ${precio_desc_p}"
         base[clave_info] = {
             "nombre_meta": str(producto.get("plantilla_info_meta", "") or f"info_{producto_id}_v1").strip(),
             "idioma": "es",
-            "texto_referencia": f"Informacion del producto {producto.get('titulo', clave)}",
+            "texto_referencia": texto_info,
             "variables_ordenadas": []
         }
     return base
@@ -340,15 +379,18 @@ def construir_manual_meta_rows():
 
     for clave, producto in (catalogo_productos or {}).items():
         producto_id = producto.get("id", clave)
-        # Usar plantilla_info_meta real del catalogo, no hardcodear info_[id]_v1
         plantilla_real = producto.get("plantilla_info_meta") or f"info_{producto_id}_v1"
+        # Usar texto_info_meta real como texto_referencia
+        texto_real = str(producto.get("texto_info_meta", "") or "").strip()
+        if not texto_real:
+            texto_real = f"Informacion del producto {producto.get('titulo', clave)}. (Edita el campo texto_info_meta en el catálogo para usar el texto persuasivo real.)"
         filas.append(
             {
                 "fase": f"Info producto {producto.get('titulo', clave)}",
                 "plantilla": plantilla_real,
-                "texto_referencia": f"Informacion del producto {producto.get('titulo', clave)}. Botones: video, pdf, comprar.",
-                "variables": "Sin variables en el body (plantilla única por producto)",
-                "botones": "Ver video | Ver PDF | Comprar",
+                "texto_referencia": texto_real,
+                "variables": "Sin variables {{N}} en el body (texto fijo por producto). Idioma: es. Categoría: MARKETING.",
+                "botones": f"Ver video demo | Ver PDF demo | Comprar",
                 "payloads": f"video_{producto_id} | pdf_{producto_id} | comprar_{producto_id} | (descuento_{producto_id}: solo solicitud explícita)"
             }
         )
@@ -622,12 +664,23 @@ def normalizar_producto_catalogo(clave, producto):
             mensajes["bienvenida_b"] = legacy_bienvenida
         mensajes["bienvenida"] = legacy_bienvenida
 
+    # texto_info_meta: cuerpo de la plantilla unica del producto para Meta.
+    # Prioridad: campo texto_info_meta > mensajes.info (si no es generico) > plantilla base genérica
+    texto_info_meta_raw = str(p.get("texto_info_meta", "") or "").strip()
+    if not texto_info_meta_raw:
+        msg_info = str(mensajes_raw.get("info", "") or "").strip()
+        default_info = DEFAULT_MENSAJES_PRODUCTO.get("info", "")
+        if msg_info and msg_info != default_info and "{titulo}" not in msg_info:
+            texto_info_meta_raw = msg_info
+        else:
+            texto_info_meta_raw = ""
 
     return {
         "id": producto_id,
         "opcion": opcion,
         "titulo": titulo,
         "plantilla_info_meta": plantilla_info_meta,
+        "texto_info_meta": texto_info_meta_raw,
         "precio_normal": precio_normal,
         "precio_descuento": precio_descuento,
         "link_video": link_video,
@@ -2351,6 +2404,34 @@ def webhook():
         if tipo_mensaje == "text":
             clave_detectada_texto, producto_detectado_texto = buscar_producto_catalogo_por_texto(texto_recibido)
 
+        # 0. DESCUENTO OCULTO: si hay catalogo_activo con oferta activa y el cliente responde
+        # cualquier texto que no sea un payload estructurado, activar la plantilla de descuento.
+        # Prioridad: ANTES de menú y de detección de producto por texto.
+        estado_cliente_actual = estados_clientes.get(numero_cliente, {})
+        if (
+            tipo_mensaje == "text"
+            and estado_cliente_actual.get("oferta_descuento_activa")
+            and not accion  # No es un payload estructurado
+            and not texto_limpio_intencion in {"hola", "menu_principal", "menu", "info", "inicio"}
+        ):
+            clave_descuento = estado_cliente_actual.get("catalogo_activo", "")
+            producto_descuento = catalogo_productos.get(clave_descuento, {}) if clave_descuento else {}
+            if producto_descuento:
+                kwargs_tpl = construir_kwargs_plantilla(numero_cliente, clave_descuento, producto_descuento)
+                enviar_mensaje_plantilla(numero_cliente, "plantilla_descuento_universal", **kwargs_tpl)
+                producto_id_desc = producto_descuento.get("id", clave_descuento)
+                enviar_mensaje_botones(
+                    numero_cliente,
+                    "Elige tu metodo de pago para activar el precio promocional.",
+                    [
+                        (f"pagar_nequi_{producto_id_desc}", "Pagar Nequi"),
+                        (f"pagar_daviplata_{producto_id_desc}", "Pagar Daviplata"),
+                        ("menu_principal", "Ver menu")
+                    ],
+                    pie="Pago con descuento"
+                )
+                return jsonify({"status": "success"}), 200
+
         # 1. MENU / HOLA / Saludos generales
         PALABRAS_SALUDO_MENU = {
             "hola", "holas", "buenas", "buenos dias", "buenas tardes", "buenas noches",
@@ -3597,7 +3678,7 @@ PANEL_HTML = """
 
         <section class="card panel-section is-hidden" id="catalogos">
             <h2>Catálogos y plantillas Meta por producto</h2>
-            <p class="helper">Aquí configuras productos, precios, URLs de demo y las plantillas Meta que debes crear en Business Manager. La pantalla principal prioriza las plantillas Meta; los textos de respaldo quedan en un acordeón avanzado.</p>
+            <p class="helper">Aquí configuras productos, precios, URLs de demo y las plantillas Meta. <strong>Precio normal</strong> es la variable {{2}} en plantilla_compra_universal; <strong>precio descuento</strong> es {{3}} en plantilla_descuento_universal. Si cambias estos valores aquí, el bot los usa automáticamente sin necesidad de editar Meta. El campo verde <em>"Texto plantilla única de información"</em> es el cuerpo que debes copiar a Meta para la plantilla exclusiva del producto.</p>
             <div class="aviso-render" style="background:#fff8e1; border:1px solid #f0c040; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:0.93rem;">
                 <strong>⚠️ Estás en Render (entorno cloud):</strong> No subas archivos locales aquí. Para video y PDF demo, pega una <strong>URL pública HTTPS</strong> (GitHub Raw, Google Drive directo, CDN, etc.) para que Meta pueda descargar el archivo correctamente.
             </div>
@@ -3734,7 +3815,12 @@ PANEL_HTML = """
                             <div id="wizard-step-3" class="wizard-step is-hidden">
                                 <div class="grid">
                                     <div class="full">
-                                        <label for="wizard_msg_info">Mensaje info</label>
+                                        <label for="wizard_texto_info_meta">Texto plantilla única de información para Meta <span style="color:#2e7d32; font-size:0.82rem;">(cuerpo de info_[id]_v1)</span></label>
+                                        <small class="helper" style="color:#2e7d32;">Este texto se copia en Meta Business Manager como cuerpo de la plantilla única del producto. Sin variables {{N}} en el body.</small>
+                                        <textarea id="wizard_texto_info_meta" style="min-height:120px;" placeholder="Escribe el texto persuasivo del producto..."></textarea>
+                                    </div>
+                                    <div class="full">
+                                        <label for="wizard_msg_info">Mensaje info (respaldo texto plano)</label>
                                         <textarea id="wizard_msg_info" placeholder="Mensaje inicial del producto"></textarea>
                                     </div>
                                     <div class="full">
@@ -3789,12 +3875,14 @@ PANEL_HTML = """
                                         <input type="text" name="catalog_plantilla_meta" value="{{ item.plantilla_info_meta or ('info_' ~ (item.id or item.key) ~ '_v1') }}" placeholder="info_finanzas_v1">
                                     </div>
                                     <div>
-                                        <label>Precio normal</label>
-                                        <input type="text" name="catalog_precio" value="{{ item.precio_normal }}" placeholder="15.000">
+                                        <label>Precio normal <span style="font-weight:400; color:#0d7b5f; font-size:0.82rem;">→ variable {{2}} en plantilla_compra_universal</span></label>
+                                        <input type="text" name="catalog_precio" value="{{ item.precio_normal }}" placeholder="15000">
+                                        <small class="helper" style="color:#0d7b5f;">Si cambias este valor, las plantillas universales lo usan automáticamente. No necesitas editar Meta.</small>
                                     </div>
                                     <div>
-                                        <label>Precio descuento</label>
-                                        <input type="text" name="catalog_precio_descuento" value="{{ item.precio_descuento }}" placeholder="9.000">
+                                        <label>Precio descuento <span style="font-weight:400; color:#c0392b; font-size:0.82rem;">→ variable {{3}} en plantilla_descuento_universal</span></label>
+                                        <input type="text" name="catalog_precio_descuento" value="{{ item.precio_descuento }}" placeholder="9000">
+                                        <small class="helper" style="color:#c0392b;">Oculto al cliente hasta abandono o solicitud explícita. No aparece en la plantilla de compra normal.</small>
                                     </div>
                                     <div>
                                         <label>Palabras clave</label>
@@ -3818,23 +3906,40 @@ PANEL_HTML = """
                                     <input type="hidden" name="catalog_archivo_video_{{ loop.index0 }}" value="">
                                     <input type="hidden" name="catalog_archivo_pdf_{{ loop.index0 }}" value="">
 
+                                    {# Sección: texto_info_meta editable - CAMPO PRINCIPAL V3 #}
+                                    <div class="full" style="margin-top:16px; padding:14px; background:#e8f5e9; border:2px solid #2e7d32; border-radius:12px;">
+                                        <strong style="font-size:1rem; color:#1b5e20;">📝 Texto plantilla única de información para Meta</strong>
+                                        <p style="margin:6px 0 6px 0; font-size:0.86rem; color:#1b5e20;">Este es el cuerpo EXACTO de la plantilla <code>{{ item.plantilla_info_meta or ('info_' ~ (item.id or item.key) ~ '_v1') }}</code> que debes crear en Meta Business Manager. Redáctalo aquí, guarda, y luego cópialo directo a Meta.</p>
+                                        <p style="margin:0 0 8px 0; font-size:0.83rem; color:#388e3c;">⚠️ Esta plantilla NO usa variables <code>&#123;&#123;1&#125;&#125;</code> en el cuerpo: el texto es fijo por producto. Los botones sí llevan payloads dinámicos.</p>
+                                        <textarea name="catalog_texto_info_meta" id="tpl_texto_info_meta_{{ loop.index0 }}" style="min-height:160px; width:100%; font-size:0.88rem; background:#f1f8f2; border:1px solid #81c784; border-radius:8px; padding:10px;">{{ item.texto_info_meta or '' }}</textarea>
+                                        <div class="actions" style="margin-top:6px;">
+                                            <button class="btn-small" type="button" onclick="copiarTextoPorId('tpl_texto_info_meta_{{ loop.index0 }}')">Copiar texto para Meta</button>
+                                        </div>
+                                    </div>
+
                                     {# Sección: Plantillas Meta para este producto #}
-                                    <div class="full" style="margin-top:16px; padding:14px; background:#eaf5ff; border:1.5px solid #2196f3; border-radius:10px;">
+                                    <div class="full" style="margin-top:12px; padding:14px; background:#eaf5ff; border:1.5px solid #2196f3; border-radius:10px;">
                                         <strong style="font-size:1rem; color:#1565c0;">&#x1F4CB; Plantillas Meta que debes crear para: {{ item.titulo }}</strong>
-                                        <p style="margin:6px 0 10px 0; font-size:0.88rem; color:#1a5276;">Estas plantillas deben crearse en <strong>Meta Business Manager &gt; WhatsApp &gt; Plantillas</strong>. Copia el texto y configura los botones con los payloads indicados.</p>
+                                        <p style="margin:6px 0 6px 0; font-size:0.88rem; color:#1a5276;">Estas plantillas deben crearse en <strong>Meta Business Manager &gt; WhatsApp &gt; Plantillas</strong>.</p>
+                                        <div style="background:#fff8e1; border:1px solid #ffc107; border-radius:8px; padding:10px; margin-bottom:12px; font-size:0.84rem; color:#6d4c00;">
+                                            <strong>💡 ¿Por qué las plantillas universales usan variables {{1}}, {{2}}?</strong><br>
+                                            Las plantillas universales (compra, descuento, cuentas, entrega) usan variables porque aplican a <em>todos los productos</em>. El bot reemplaza esas variables con los datos del catálogo al enviarlas. <strong>Si cambias el precio o el nombre en el catálogo, NO necesitas editar la plantilla en Meta.</strong>
+                                        </div>
 
                                         <div style="margin-bottom:12px; padding:10px; background:#fff; border-radius:8px; border:1px solid #90caf9;">
                                             <p style="margin:0 0 4px 0; font-weight:700; color:#1565c0;">A) Plantilla única del producto: <code>{{ item.plantilla_info_meta or ('info_' ~ (item.id or item.key) ~ '_v1') }}</code></p>
-                                            <p style="margin:0 0 6px 0; font-size:0.84rem; color:#537080;">Categoría sugerida: <strong>MARKETING</strong> &bull; Idioma: <strong>es</strong></p>
-                                            <p style="margin:0 0 4px 0; font-size:0.84rem; color:#537080;">Texto de referencia copiable (usa este cuerpo en Meta; sin variables en el body si el texto es fijo):</p>
-                                            <textarea id="tpl_producto_texto_{{ loop.index0 }}" readonly style="min-height:110px; width:100%; font-size:0.85rem; background:#f8fbff;">{% if item.mensajes.info and item.mensajes.info != 'Producto: {titulo}. Precio: ${precio}.' %}{{ item.mensajes.info }}{% else %}Hola, te comparto información de {{ item.titulo }}.
+                                            <p style="margin:0 0 4px 0; font-size:0.84rem; color:#537080;">Categoría sugerida: <strong>MARKETING</strong> &bull; Idioma: <strong>es</strong></p>
+                                            <p style="margin:0 0 4px 0; font-size:0.84rem; color:#537080;">Precio normal actual: <strong>${{ item.precio_normal }}</strong> &bull; Precio descuento: <strong>${{ item.precio_descuento }}</strong></p>
+                                            <p style="margin:0 0 4px 0; font-size:0.83rem; color:#1b5e20;"><em>El texto de arriba (campo verde) es el cuerpo de esta plantilla. Si cambias precio o título, edita el campo verde y guarda.</em></p>
+                                            <textarea id="tpl_producto_texto_{{ loop.index0 }}" readonly style="min-height:110px; width:100%; font-size:0.85rem; background:#f8fbff;">{{ item.texto_info_meta or ('Hola, te comparto informacion de ' ~ item.titulo ~ '.
 
-Precio: ${{ item.precio_normal }}
-Descuento disponible: ${{ item.precio_descuento }}{% endif %}</textarea>
+Precio: $' ~ item.precio_normal ~ '
+Descuento especial: $' ~ item.precio_descuento) }}</textarea>
                                             <div class="actions" style="margin-top:6px;">
+                                                <button class="btn-small" type="button" onclick="sincronizarTextoInfoMeta({{ loop.index0 }})">Sincronizar desde campo editable</button>
                                                 <button class="btn-small" type="button" onclick="copiarTextoPorId('tpl_producto_texto_{{ loop.index0 }}')">Copiar texto plantilla</button>
                                             </div>
-                                            <p style="margin:8px 0 4px 0; font-size:0.84rem; color:#537080;"><strong>Botones obligatorios en Meta (Quick Reply o URL):</strong></p>
+                                            <p style="margin:8px 0 4px 0; font-size:0.84rem; color:#537080;"><strong>Botones obligatorios en Meta (Quick Reply):</strong></p>
                                             <div class="payload-grid">
                                                 <div class="payload-chip" style="background:#e8f5e9; border-color:#66bb6a;"><strong>Botón 1 – Ver video demo</strong><div class="payload-copy-row"><input id="btn1_video_{{ loop.index0 }}" type="text" readonly value="video_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('btn1_video_{{ loop.index0 }}')">Copiar</button></div></div>
                                                 <div class="payload-chip" style="background:#e8f5e9; border-color:#66bb6a;"><strong>Botón 2 – Ver PDF demo</strong><div class="payload-copy-row"><input id="btn2_pdf_{{ loop.index0 }}" type="text" readonly value="pdf_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('btn2_pdf_{{ loop.index0 }}')">Copiar</button></div></div>
@@ -3995,9 +4100,9 @@ OTROS PAYLOADS (no van en plantilla info):
                     <p style="margin:0 0 4px 0; font-size:0.84rem;"><strong>Botones:</strong> {{ tpl.botones }}</p>
                     {% if tpl.nota %}<p style="margin:0 0 6px 0; font-size:0.82rem; color:#8a5e2a;"><strong>Nota:</strong> {{ tpl.nota }}</p>{% endif %}
                     <div style="margin-top:8px;">
-                        <label style="font-size:0.83rem; color:#537080;">Texto exacto (copiar y pegar en Meta):</label>
-                        <textarea id="tpl_universal_{{ tpl.nombre }}" readonly style="min-height:80px; width:100%; font-size:0.83rem; background:#f8fbff; margin-top:4px;">{% if tpl.nombre in catalogo_plantillas_meta %}{{ catalogo_plantillas_meta[tpl.nombre].texto_referencia }}{% else %}(No disponible){% endif %}</textarea>
-                        <button class="btn-small" type="button" style="margin-top:4px;" onclick="copiarTextoPorId('tpl_universal_{{ tpl.nombre }}')">Copiar</button>
+                        <label style="font-size:0.83rem; color:#537080;">Texto con variables (el bot reemplaza {{1}}, {{2}}, etc. desde el catálogo — si cambias precio o nombre en catálogo, <strong>no necesitas editar Meta</strong>):</label>
+                        <textarea id="tpl_universal_{{ tpl.nombre }}" readonly style="min-height:90px; width:100%; font-size:0.83rem; background:#f8fbff; margin-top:4px;">{% if tpl.nombre in catalogo_plantillas_meta %}{{ catalogo_plantillas_meta[tpl.nombre].texto_referencia }}{% else %}(No disponible){% endif %}</textarea>
+                        <button class="btn-small" type="button" style="margin-top:4px;" onclick="copiarTextoPorId('tpl_universal_{{ tpl.nombre }}')">Copiar texto con variables</button>
                     </div>
                 </div>
                 {% endfor %}
@@ -4333,6 +4438,7 @@ OTROS PAYLOADS (no van en plantilla info):
         // AUTO_INICIAR_TUTORIAL: true solo si tutorial_habilitado Y auto_iniciar_tutorial están activos
         const AUTO_INICIAR_TUTORIAL = {{ 'true' if (tutorial_habilitado and auto_iniciar_tutorial) else 'false' }};
         const TUTORIAL_HABILITADO = {{ 'true' if tutorial_habilitado else 'false' }};
+        const TEXTO_INFO_META_BASE = {{ texto_info_meta_base_json|safe }};
     </script>
     <script>
         let wizardStepActual = 1;
@@ -4457,6 +4563,15 @@ OTROS PAYLOADS (no van en plantilla info):
             document.execCommand("copy");
         }
 
+        // Sincroniza el textarea de previsualización con el campo texto_info_meta editable
+        function sincronizarTextoInfoMeta(idx) {
+            const src = document.getElementById("tpl_texto_info_meta_" + idx);
+            const dest = document.getElementById("tpl_producto_texto_" + idx);
+            if (src && dest) {
+                dest.value = src.value;
+            }
+        }
+
         function enfocarCatalogo(id) {
             if (!id) return;
             const el = document.getElementById(id);
@@ -4566,9 +4681,15 @@ OTROS PAYLOADS (no van en plantilla info):
                     </div>
                     <input type="hidden" name="catalog_archivo_video_${idx}" value="">
                     <input type="hidden" name="catalog_archivo_pdf_${idx}" value="">
-                    <div class="full" style="margin-top:10px; padding:10px; background:#eaf5ff; border:1px solid #90caf9; border-radius:8px;">
+                    <div class="full" style="margin-top:10px; padding:14px; background:#e8f5e9; border:2px solid #2e7d32; border-radius:12px;">
+                        <strong style="font-size:0.9rem; color:#1b5e20;">📝 Texto plantilla única de información para Meta</strong>
+                        <p style="font-size:0.82rem; color:#388e3c; margin:4px 0 6px 0;">Escribe el cuerpo de la plantilla única de este producto para Meta. Texto persuasivo, sin variables {{1}} en el body.</p>
+                        <textarea name="catalog_texto_info_meta" style="min-height:120px; width:100%; font-size:0.84rem; background:#f1f8f2; border:1px solid #81c784; border-radius:8px; padding:8px;">${TEXTO_BASE_NUEVO || ""}</textarea>
+                    </div>
+                    <div class="full" style="margin-top:8px; padding:10px; background:#eaf5ff; border:1px solid #90caf9; border-radius:8px;">
                         <strong style="font-size:0.9rem; color:#1565c0;">Plantillas Meta (configura en Meta Business Manager)</strong>
-                        <p style="font-size:0.82rem; color:#537080; margin:4px 0 8px 0;">Botones obligatorios: video_[id], pdf_[id], comprar_[id]. Descuento solo por abandono.</p>
+                        <p style="font-size:0.82rem; color:#537080; margin:4px 0 4px 0;">Botones obligatorios: video_[id], pdf_[id], comprar_[id]. Descuento solo por abandono.</p>
+                        <p style="font-size:0.82rem; color:#0d7b5f; margin:0;">Precio normal → {{2}} en plantilla_compra_universal. Si cambias precio aquí, no debes editar Meta.</p>
                     </div>
                     <div class="full" style="margin-top:10px;">
                         <details>
@@ -4689,6 +4810,7 @@ OTROS PAYLOADS (no van en plantilla info):
             const palabras = document.getElementById("wizard_palabras")?.value || "";
             const video = document.getElementById("wizard_video")?.value || "";
             const pdf = document.getElementById("wizard_pdf")?.value || "";
+            const textoInfoMeta = document.getElementById("wizard_texto_info_meta")?.value || TEXTO_INFO_META_BASE || "";
             const msgInfo = document.getElementById("wizard_msg_info")?.value || "";
             const msgDemo = document.getElementById("wizard_msg_demo")?.value || "";
             const msgDesc = document.getElementById("wizard_msg_desc")?.value || "";
@@ -4704,6 +4826,7 @@ OTROS PAYLOADS (no van en plantilla info):
             setVal('input[name="catalog_palabras"]', palabras);
             setVal('input[name="catalog_link_video"]', video);
             setVal('input[name="catalog_link_pdf"]', pdf);
+            setVal('textarea[name="catalog_texto_info_meta"]', textoInfoMeta);
             setVal('textarea[name="catalog_msg_info"]', msgInfo);
             setVal('textarea[name="catalog_msg_despues_demo"]', msgDemo);
             setVal('textarea[name="catalog_msg_descuento"]', msgDesc);
@@ -5151,11 +5274,15 @@ def admin():
                     if ruta_pdf:
                         link_pdf = ruta_pdf
 
+                texto_info_meta_form = request.form.getlist("catalog_texto_info_meta")
+                texto_info_meta_val = (texto_info_meta_form[idx] if idx < len(texto_info_meta_form) else "").strip()
+
                 nuevo_catalogo[clave] = {
                     "id": producto_id,
                     "opcion": opcion,
                     "titulo": titulo,
                     "plantilla_info_meta": plantilla_meta,
+                    "texto_info_meta": texto_info_meta_val,
                     "precio_normal": precio,
                     "precio_descuento": precio_desc,
                     "link_video": link_video,
@@ -5205,6 +5332,7 @@ def admin():
                 "opcion": v.get("opcion", ""),
                 "titulo": v.get("titulo", k),
                 "plantilla_info_meta": v.get("plantilla_info_meta", f"info_{v.get('id', k)}_v1"),
+                "texto_info_meta": v.get("texto_info_meta", ""),
                 "precio_normal": v.get("precio_normal", "0"),
                 "precio_descuento": v.get("precio_descuento", v.get("precio_normal", "0")),
                 "link_video": v.get("link_video", ""),
@@ -5220,6 +5348,7 @@ def admin():
         fecha_hasta=fecha_hasta,
         producto_reporte=producto_reporte,
         mensajes_default_json=json.dumps(DEFAULT_MENSAJES_PRODUCTO, ensure_ascii=False),
+        texto_info_meta_base_json=json.dumps(TEXTO_INFO_META_BASE_NUEVO_PRODUCTO, ensure_ascii=False),
         catalogo_plantillas_meta=catalogo_plantillas_meta,
         vista_previa_plantillas_meta=vista_previa_plantillas_meta,
         manual_meta_rows=manual_meta_rows,
