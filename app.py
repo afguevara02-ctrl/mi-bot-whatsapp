@@ -3791,11 +3791,11 @@ PANEL_HTML = """
                         </div>
                         <div>
                             <label for="meta_test_var1">Variable {{ '{{1}}' }}</label>
-                            <input id="meta_test_var1" type="text" name="meta_test_var1" value="{{ meta_test_var1 }}" placeholder="Nombre del cliente">
+                            <input id="meta_test_var1" type="text" name="meta_test_var1" value="{{ meta_test_var1 or '' }}" placeholder="Nombre del cliente">
                         </div>
                         <div class="full">
                             <label for="meta_test_var2">Variable {{ '{{2}}' }}</label>
-                            <input id="meta_test_var2" type="text" name="meta_test_var2" value="{{ meta_test_var2 }}" placeholder="Motivo de la cita">
+                            <input id="meta_test_var2" type="text" name="meta_test_var2" value="{{ meta_test_var2 or '' }}" placeholder="Motivo de la cita">
                         </div>
                     </div>
                     <div class="actions">
@@ -5350,8 +5350,8 @@ def admin():
 @app.route('/test_meta', methods=['POST'])
 def test_meta():
     numero_destino = normalizar_numero_whatsapp(request.form.get("meta_test_numero_destino", ""))
-    template_name = (request.form.get("meta_test_template_name") or "hello_world_p").strip() or "hello_world_p"
-    language_code = (request.form.get("meta_test_language") or "en_US").strip() or "en_US"
+    template_name = (request.form.get("meta_test_template_name") or "").strip() or "hello_world_p"
+    language_code = (request.form.get("meta_test_language") or "").strip() or "en_US"
     variable_1 = (request.form.get("meta_test_var1") or "").strip()
     variable_2 = (request.form.get("meta_test_var2") or "").strip()
 
@@ -5398,7 +5398,7 @@ def test_meta():
     except requests.RequestException as exc:
         return redirect(url_for('admin', tab='configuracion', msg=f"Error conectando con Meta: {exc}"))
 
-    if 200 <= status_code < 300:
+    if respuesta.ok:
         mensaje = f"Prueba enviada correctamente a Meta (status {status_code})."
     else:
         mensaje = f"Meta devolvió error (status {status_code}): {response_text}"
