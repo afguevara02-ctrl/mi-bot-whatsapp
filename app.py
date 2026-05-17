@@ -3772,6 +3772,7 @@ PANEL_HTML = """
                             </select>
                             <button class="btn-small" type="button" onclick="agregarProductoCatalogo()">+ Agregar producto</button>
                             <button class="btn-small" type="button" onclick="mostrarWizardProducto()">Asistente 3 pasos</button>
+                            <button class="button" type="submit">Guardar cambios de catálogos</button>
                         </div>
                         <div id="wizard-producto" class="wizard is-hidden">
                             <h3 style="margin-top:0;">Asistente de producto (3 pasos)</h3>
