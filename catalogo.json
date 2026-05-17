@@ -1,0 +1,62 @@
+{
+  "finanzas": {
+    "id": "finanzas",
+    "opcion": "1",
+    "titulo": "Pack Completo de Cartillas de Finanzas",
+    "plantilla_info_meta": "info_finanzas_v1",
+    "precio_normal": "15000",
+    "precio_descuento": "10000",
+    "link_video": "",
+    "link_pdf": "",
+    "link_drive_final": "https://drive.google.com/drive/folders/1hX5B6Q0Z2NM7D1MadDVui7LMvNis0Vd5",
+    "link_canal_whatsapp": "https://whatsapp.com/channel/0029VbBQlcRLSmbiqKysJp3q",
+    "palabras_clave": [
+      "finanzas",
+      "dinero",
+      "ahorro",
+      "cartillas",
+      "economia"
+    ],
+    "mensajes": {}
+  },
+  "ingles": {
+    "id": "ingles",
+    "opcion": "2",
+    "titulo": "Planeaciones Unificadas de Ingles",
+    "plantilla_info_meta": "info_ingles_v1",
+    "precio_normal": "20000",
+    "precio_descuento": "15000",
+    "link_video": "",
+    "link_pdf": "",
+    "link_drive_final": "",
+    "link_canal_whatsapp": "",
+    "palabras_clave": [
+      "ingles",
+      "planeaciones",
+      "dba",
+      "ebc",
+      "english"
+    ],
+    "mensajes": {}
+  },
+  "biologia": {
+    "id": "biologia",
+    "opcion": "3",
+    "titulo": "Guias de Biologia",
+    "plantilla_info_meta": "info_biologia_v1",
+    "precio_normal": "12000",
+    "precio_descuento": "10000",
+    "link_video": "",
+    "link_pdf": "",
+    "link_drive_final": "",
+    "link_canal_whatsapp": "",
+    "palabras_clave": [
+      "biologia",
+      "laboratorio",
+      "microscopio",
+      "celula",
+      "ciencias"
+    ],
+    "mensajes": {}
+  }
+}
