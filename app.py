@@ -18,7 +18,7 @@ app = Flask(__name__)
 # ⚙️ CONFIGURACION
 # ==========================================
 TOKEN_META_DEFAULT = "EAALkHb9ZBdFwBRBq5ZAZBZA9zYpYy5vbd4Esk7AzfbqLOOehck21nSZADaXC80aBEtM39MlXGsJnTHwJZBkdJUPGOjjm6UzqIZCKLpe63d0wYbXRlfCTy5MlazSfc2Smf9vBJw6zTEberthmSv1IiZBp4ZCMOGBchWqXtEtaKN2SzBs3IPSxwYwC51mJQT3l28QZDZD"
-ID_TELEFONO_DEFAULT = "1067511759782672"
+ID_TELEFONO_DEFAULT = "1052565307946835"
 TOKEN_VERIFICACION = "Kiratsu.52310299*"
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "bot_config.json"
@@ -72,7 +72,8 @@ DEFAULT_DATOS_BOT = {
     "catalogo_plantillas_meta_custom": {},
     "ocultar_tutorial_panel": False,
     "auto_iniciar_tutorial": True,
-    "test_template_nombre": "hello_world_p",
+    "tutorial_habilitado": True,  # False = no arrancar tutorial al cargar la pagina
+    "test_template_nombre": "hello_world",
     "test_template_idioma": "en_US",
     "test_template_var1": "",
     "test_template_var2": "",
@@ -188,10 +189,22 @@ CATALOGO_PLANTILLAS_META = {
         "variables_ordenadas": ["lista_productos"]
     },
     # ---------------------------------------------------------------
+    # plantilla_compra_universal
+    # Se envia cuando el cliente pulsa 'Comprar' desde cualquier producto.
+    # {{1}} = titulo del producto  /  {{2}} = precio_normal
+    # Botones: pagar_nequi_[id]  y  pagar_daviplata_[id]  y  menu_principal
+    # ---------------------------------------------------------------
+    "plantilla_compra_universal": {
+        "nombre_meta": "plantilla_compra_universal",
+        "idioma": "es",
+        "texto_referencia": "Excelente decision.\nProducto: {{1}}\nPrecio: ${{2}}\n\nElige tu metodo de pago para completar la compra.",
+        "variables_ordenadas": ["nombre_producto", "precio_normal"]
+    },
+    # ---------------------------------------------------------------
     # plantilla_seguimiento_pdf
     # Se envia INMEDIATAMENTE despues de enviar el PDF demo.
     # {{1}} = titulo del producto
-    # Botones quick-reply: comprar_[id]  y  descuento_[id]
+    # Botones quick-reply: comprar_[id]
     # ---------------------------------------------------------------
     "plantilla_seguimiento_pdf": {
         "nombre_meta": "plantilla_seguimiento_pdf",
@@ -325,14 +338,16 @@ def construir_manual_meta_rows():
 
     for clave, producto in (catalogo_productos or {}).items():
         producto_id = producto.get("id", clave)
+        # Usar plantilla_info_meta real del catalogo, no hardcodear info_[id]_v1
+        plantilla_real = producto.get("plantilla_info_meta") or f"info_{producto_id}_v1"
         filas.append(
             {
                 "fase": f"Info producto {producto.get('titulo', clave)}",
-                "plantilla": producto.get("plantilla_info_meta", f"info_{producto_id}_v1"),
-                "texto_referencia": f"Informacion del producto {producto.get('titulo', clave)}",
-                "variables": "Sin variables en el body",
+                "plantilla": plantilla_real,
+                "texto_referencia": f"Informacion del producto {producto.get('titulo', clave)}. Botones: video, pdf, comprar.",
+                "variables": "Sin variables en el body (plantilla única por producto)",
                 "botones": "Ver video | Ver PDF | Comprar",
-                "payloads": f"video_{producto_id} | pdf_{producto_id} | comprar_{producto_id}"
+                "payloads": f"video_{producto_id} | pdf_{producto_id} | comprar_{producto_id} | (descuento_{producto_id}: solo solicitud explícita)"
             }
         )
     return filas
@@ -465,6 +480,12 @@ def cargar_datos_bot():
                 datos.update(datos_guardados)
         except (json.JSONDecodeError, OSError):
             pass
+    # Corrección de seguridad: si una configuración vieja conserva el
+    # identificador anterior del número de WhatsApp, usar el ID correcto por
+    # defecto. Esto evita que la prueba Meta falle aunque bot_config.json haya
+    # quedado con el valor antiguo tras un despliegue o copia local.
+    if str(datos.get("id_telefono", "")).strip() in {"", "1067511759782672"}:
+        datos["id_telefono"] = ID_TELEFONO_DEFAULT
     for campo_obsoleto in (
         "auto_ngrok",
         "auto_pinggy",
@@ -1125,7 +1146,8 @@ if not clientes_vendidos and ventas_registradas:
 def enviar_peticion_whatsapp(data):
     id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT).strip()
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
-    url = f"https://graph.facebook.com/v25.0/{id_telefono}/messages"
+    # API v19.0: version estable y reciente de Meta Graph API
+    url = f"https://graph.facebook.com/v19.0/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
@@ -1182,34 +1204,56 @@ def enviar_mensaje_plantilla(numero_destino, clave_plantilla, **kwargs):
 
 
 def enviar_video(numero_destino, url_video, texto_pie):
-    # Si la URL es local (/media/...), usar URL pública con Pinggy
-    if url_video.startswith('/media/') and PUBLIC_TUNNEL_URL:
-        url_video = f"{PUBLIC_TUNNEL_URL}{url_video}"
-    
+    """Envia un video a WhatsApp.
+    - URLs http/https (GitHub Raw, CDN, etc.): se usan directamente.
+    - URLs locales /media/...: se convierten con PUBLIC_TUNNEL_URL si está disponible.
+    - No descarga el archivo localmente.
+    """
+    if not url_video:
+        return None
+    # Solo convertir si es ruta local /media/
+    if url_video.startswith('/media/'):
+        if PUBLIC_TUNNEL_URL:
+            url_video = f"{PUBLIC_TUNNEL_URL}{url_video}"
+        else:
+            # Sin tunnel, no se puede enviar URL local a Meta
+            return None
+    # URLs http/https: usar directamente (GitHub Raw, GDrive direct, CDN, etc.)
     data = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
         "type": "video",
         "video": {
             "link": url_video,
-            "caption": texto_pie
+            "caption": texto_pie or ""
         }
     }
     return enviar_peticion_whatsapp(data)
 
 
 def enviar_documento(numero_destino, url_documento, nombre_archivo):
-    # Si la URL es local (/media/...), usar URL pública con Pinggy
-    if url_documento.startswith('/media/') and PUBLIC_TUNNEL_URL:
-        url_documento = f"{PUBLIC_TUNNEL_URL}{url_documento}"
-    
+    """Envia un documento/PDF a WhatsApp.
+    - URLs http/https (GitHub Raw, CDN, etc.): se usan directamente.
+    - URLs locales /media/...: se convierten con PUBLIC_TUNNEL_URL si está disponible.
+    - No descarga el archivo localmente.
+    """
+    if not url_documento:
+        return None
+    # Solo convertir si es ruta local /media/
+    if url_documento.startswith('/media/'):
+        if PUBLIC_TUNNEL_URL:
+            url_documento = f"{PUBLIC_TUNNEL_URL}{url_documento}"
+        else:
+            # Sin tunnel, no se puede enviar URL local a Meta
+            return None
+    # URLs http/https: usar directamente (GitHub Raw, GDrive direct, CDN, etc.)
     data = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
         "type": "document",
         "document": {
             "link": url_documento,
-            "filename": nombre_archivo
+            "filename": nombre_archivo or "documento.pdf"
         }
     }
     return enviar_peticion_whatsapp(data)
@@ -1255,7 +1299,7 @@ def descargar_media_comprobante(media_id, nombre_archivo=""):
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
     headers = {"Authorization": f"Bearer {token_meta}"}
     try:
-        meta = requests.get(f"https://graph.facebook.com/v25.0/{media_id}", headers=headers, timeout=30)
+        meta = requests.get(f"https://graph.facebook.com/v19.0/{media_id}", headers=headers, timeout=30)
         if not meta.ok:
             return ""
         media_url = meta.json().get("url", "")
@@ -1624,8 +1668,12 @@ def enviar_opciones_compra(numero_cliente):
     producto_id = producto.get("id", clave)
     enviar_mensaje_botones(
         numero_cliente,
-        "Para continuar con la compra puedes ver una oferta especial o elegir tu medio de pago.",
-        [(f"descuento_{producto_id}", "Descuento"), (f"pagar_nequi_{producto_id}", "Pagar Nequi"), (f"pagar_daviplata_{producto_id}", "Pagar Daviplata")],
+        "Para continuar con la compra, elige tu medio de pago.",
+        [
+            (f"pagar_nequi_{producto_id}", "Pagar Nequi"),
+            (f"pagar_daviplata_{producto_id}", "Pagar Daviplata"),
+            ("menu_principal", "Menú")
+        ],
         pie="Compra"
     )
 
@@ -2216,15 +2264,69 @@ def webhook():
             )
 
         def _enviar_info_producto(clave_producto, producto):
-            """Actualiza estado y envia plantilla de info del producto."""
+            """Actualiza estado y envia plantilla de info del producto.
+            Usa el nombre exacto del campo plantilla_info_meta como nombre Meta.
+            Si el campo existe, hace una llamada de plantilla directa con ese nombre.
+            Si no existe, cae en texto plano.
+            """
             actualizar_etapa_cliente(
                 numero_cliente, "viendo_info",
                 catalogo_activo=clave_producto,
                 producto_titulo=producto.get("titulo", clave_producto)
             )
-            plantilla_info = str(producto.get("plantilla_info_meta", "")).strip()
-            if plantilla_info:
-                enviar_mensaje_plantilla(numero_cliente, plantilla_info)
+            # plantilla_info_meta contiene el NOMBRE APROBADO en Meta (ej: "info_finanzas_v1")
+            plantilla_info_nombre = str(producto.get("plantilla_info_meta", "")).strip()
+            if plantilla_info_nombre:
+                # Enviar directamente como template con el nombre aprobado
+                id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT).strip()
+                token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
+                url = f"https://graph.facebook.com/v19.0/{id_telefono}/messages"
+                headers = {
+                    "Authorization": f"Bearer {token_meta}",
+                    "Content-Type": "application/json"
+                }
+                payload_meta = {
+                    "messaging_product": "whatsapp",
+                    "to": numero_cliente,
+                    "type": "template",
+                    "template": {
+                        "name": plantilla_info_nombre,
+                        "language": {"code": "es"}
+                    }
+                }
+                try:
+                    resp = requests.post(url, headers=headers, json=payload_meta, timeout=30)
+                    if not resp.ok:
+                        # Fallback: enviar botones interactivos con info del producto
+                        producto_id = producto.get("id", clave_producto)
+                        titulo = producto.get("titulo", clave_producto)
+                        precio = producto.get("precio_normal", "")
+                        texto_fallback = f"{titulo}"
+                        if precio:
+                            texto_fallback += f"\nPrecio: ${precio}"
+                        enviar_mensaje(numero_cliente, texto_fallback)
+                        enviar_mensaje_botones(
+                            numero_cliente,
+                            "¿Qué deseas hacer?",
+                            [
+                                (f"video_{producto_id}", "Ver video"),
+                                (f"pdf_{producto_id}", "Ver PDF"),
+                                (f"comprar_{producto_id}", "Comprar")
+                            ],
+                            pie="Selecciona una opción"
+                        )
+                except Exception:
+                    producto_id = producto.get("id", clave_producto)
+                    enviar_mensaje_botones(
+                        numero_cliente,
+                        f"Información sobre {producto.get('titulo', clave_producto)}",
+                        [
+                            (f"video_{producto_id}", "Ver video"),
+                            (f"pdf_{producto_id}", "Ver PDF"),
+                            (f"comprar_{producto_id}", "Comprar")
+                        ],
+                        pie="Selecciona una opción"
+                    )
             else:
                 enviar_mensaje(
                     numero_cliente,
@@ -2247,13 +2349,17 @@ def webhook():
         if tipo_mensaje == "text":
             clave_detectada_texto, producto_detectado_texto = buscar_producto_catalogo_por_texto(texto_recibido)
 
-        # 1. MENU / HOLA
+        # 1. MENU / HOLA / Saludos generales
+        PALABRAS_SALUDO_MENU = {
+            "hola", "holas", "buenas", "buenos dias", "buenas tardes", "buenas noches",
+            "menu_principal", "menu", "info", "inicio", "empezar", "start", "hi", "hello"
+        }
         if (
             accion == "menu"
             or texto_recibido in {"hola", "menu_principal"}
             or (
                 tipo_mensaje == "text"
-                and texto_limpio_intencion in {"menu", "info"}
+                and texto_limpio_intencion in PALABRAS_SALUDO_MENU
                 and not producto_detectado_texto
             )
         ):
@@ -2284,11 +2390,13 @@ def webhook():
                     producto_titulo=producto.get("titulo", clave)
                 )
                 if link_video:
+                    # Soportar URLs externas (GitHub Raw, CDN, etc.) directamente
                     enviar_video(
                         numero_cliente, link_video,
                         f"Video demo: {producto.get('titulo', clave)}"
                     )
                     producto_id = producto.get("id", clave)
+                    # Solo pdf/comprar/menu. SIN descuento en esta etapa.
                     enviar_mensaje_botones(
                         numero_cliente,
                         "¿Qué deseas hacer ahora?",
@@ -2300,9 +2408,19 @@ def webhook():
                         pie="Siguiente paso"
                     )
                 else:
+                    producto_id = producto.get("id", clave)
                     enviar_mensaje(
                         numero_cliente,
-                        "Este producto no tiene video configurado todavia. Escribe menu para ver otras opciones."
+                        "Este producto no tiene video configurado todavia."
+                    )
+                    enviar_mensaje_botones(
+                        numero_cliente,
+                        "¿Qué deseas hacer?",
+                        [
+                            (f"comprar_{producto_id}", "Comprar"),
+                            ("menu_principal", "Menú")
+                        ],
+                        pie="Opciones"
                     )
 
         # 4. VER PDF  -> envia PDF y botones permitidos
@@ -2325,10 +2443,12 @@ def webhook():
                 )
                 producto_id = producto.get("id", clave)
                 if link_pdf:
+                    # Soportar URLs externas (GitHub Raw, CDN, etc.) directamente
                     enviar_documento(
                         numero_cliente, link_pdf,
                         f"Demo_{producto_id}.pdf"
                     )
+                    # Solo video/comprar/menu. SIN descuento en esta etapa.
                     enviar_mensaje_botones(
                         numero_cliente,
                         "¿Qué deseas hacer ahora?",
@@ -2342,10 +2462,19 @@ def webhook():
                 else:
                     enviar_mensaje(
                         numero_cliente,
-                        "Este producto aun no tiene PDF demo configurado. Escribe menu para ver otras opciones."
+                        "Este producto aun no tiene PDF demo configurado."
+                    )
+                    enviar_mensaje_botones(
+                        numero_cliente,
+                        "¿Qué deseas hacer?",
+                        [
+                            (f"comprar_{producto_id}", "Comprar"),
+                            ("menu_principal", "Menú")
+                        ],
+                        pie="Opciones"
                     )
 
-        # 5. COMPRAR -> plantilla universal + metodos de pago
+        # 5. COMPRAR -> plantilla_compra_universal + solo pagar_nequi/pagar_daviplata/menu
         elif accion == "comprar":
             clave, producto = resolver_producto_por_id_o_estado(numero_cliente, objetivo_payload)
             if not producto:
@@ -2364,10 +2493,20 @@ def webhook():
                     valor_venta=convertir_monto(producto.get("precio_normal", "0"))
                 )
                 producto_id = producto.get("id", clave)
+                titulo_prod = producto.get("titulo", clave)
+                precio_prod = producto.get("precio_normal", "")
+                # Enviar plantilla_compra_universal si existe, o texto plano con precio
                 kwargs_tpl = construir_kwargs_plantilla(numero_cliente, clave, producto)
-                enviar_mensaje_plantilla(
+                resp_tpl = enviar_mensaje_plantilla(
                     numero_cliente, "plantilla_compra_universal", **kwargs_tpl
                 )
+                # Si la plantilla no existe en Meta, enviar texto de respaldo
+                if not resp_tpl or not resp_tpl.ok:
+                    texto_compra = f"{titulo_prod}"
+                    if precio_prod:
+                        texto_compra += f"\nPrecio: ${precio_prod}"
+                    enviar_mensaje(numero_cliente, texto_compra)
+                # SOLO pagar_nequi/pagar_daviplata/menu. SIN descuento.
                 enviar_mensaje_botones(
                     numero_cliente,
                     "Selecciona tu metodo de pago para activar tu compra.",
@@ -2380,6 +2519,7 @@ def webhook():
                 )
 
         # 6. DESCUENTO -> inyecta precios del catalogo en plantilla_descuento_universal
+        # Solo se activa por payload explícito 'descuento_[id]' o por lógica de abandono.
         elif accion == "descuento":
             clave, producto = resolver_producto_por_id_o_estado(numero_cliente, objetivo_payload)
             if not producto:
@@ -2397,7 +2537,7 @@ def webhook():
                     tipo_precio="descuento",
                     valor_venta=convertir_monto(producto.get("precio_descuento", "0"))
                 )
-                # Inyectar precio_normal y precio_descuento desde el catalogo
+                # Inyectar titulo, precio_normal y precio_descuento desde el catalogo
                 kwargs_tpl = construir_kwargs_plantilla(numero_cliente, clave, producto)
                 enviar_mensaje_plantilla(
                     numero_cliente, "plantilla_descuento_universal", **kwargs_tpl
@@ -2530,7 +2670,8 @@ def webhook():
                     f"No hay solicitud pendiente para {numero_cliente_objetivo}."
                 )
 
-        # 12. DESCUENTO OCULTO por texto exacto
+        # 12. DESCUENTO por texto explícito del cliente
+        # Se activa cuando el cliente escribe exactamente palabras relacionadas con descuento.
         elif (
             tipo_mensaje == "text"
             and texto_limpio_intencion in {
@@ -2556,12 +2697,14 @@ def webhook():
                     numero_cliente, "plantilla_descuento_universal", **kwargs_tpl
                 )
                 producto_id = producto_estado.get("id", clave_estado)
+                # Incluir menu_principal como tercera opción
                 enviar_mensaje_botones(
                     numero_cliente,
                     "Elige tu metodo de pago para activar el precio promocional.",
                     [
                         (f"pagar_nequi_{producto_id}", "Pagar Nequi"),
-                        (f"pagar_daviplata_{producto_id}", "Pagar Daviplata")
+                        (f"pagar_daviplata_{producto_id}", "Pagar Daviplata"),
+                        ("menu_principal", "Ver menu")
                     ],
                     pie="Pago con descuento"
                 )
@@ -3356,7 +3499,7 @@ PANEL_HTML = """
                 <div class="grid">
                     <div class="full" id="tutorial-config-base">
                         <label for="id_telefono">ID de telefono de Meta</label>
-                        <input id="id_telefono" type="text" name="id_telefono" value="{{ id_telefono }}" placeholder="1067511759782672">
+                        <input id="id_telefono" type="text" name="id_telefono" value="{{ id_telefono }}" placeholder="1052565307946835">
                         <span class="helper">Puedes cambiar este valor cuando pases del entorno de pruebas al real.</span>
                     </div>
                     <div class="full">
@@ -3424,6 +3567,25 @@ PANEL_HTML = """
                     </div>
                 </div>
 
+                <div class="full" style="margin-top:14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #f8fbfd;">
+                    <label style="font-weight:700; margin-bottom: 8px; display:block;">Control del tutorial de inicio</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+                        <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="tutorial_habilitado" id="chk_tutorial_habilitado" {% if tutorial_habilitado %}checked{% endif %}>
+                            Mostrar tutorial automáticamente al cargar el panel
+                        </label>
+                        <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="auto_iniciar_tutorial" id="chk_auto_iniciar" {% if auto_iniciar_tutorial %}checked{% endif %}>
+                            Auto-iniciar tutorial (arrancar en el paso 1 al cargar)
+                        </label>
+                        <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="ocultar_tutorial_panel" id="chk_ocultar_tutorial" {% if ocultar_tutorial_panel %}checked{% endif %}>
+                            Ocultar botón flotante de tutorial
+                        </label>
+                    </div>
+                    <span class="helper" style="margin-top:6px; display:block;">Si desmarcar "Mostrar tutorial automáticamente" deshabilita el arranque al recargar. Puedes volver a abrirlo manualmente con el botón "Reactivar guía" de arriba o con el botón flotante.</span>
+                </div>
+
                 <div class="actions">
                     <button class="button" type="submit">Guardar configuración general</button>
                     <button class="btn-small button-danger" type="submit" name="reset_plantillas_meta" value="1" onclick="return confirm('Esto restaura la configuracion de plantillas Meta (nombre, idioma, texto y variables) a valores por defecto. ¿Continuar?');">Restaurar configuración de plantillas por defecto</button>
@@ -3448,16 +3610,14 @@ PANEL_HTML = """
                             <span class="catalogo-kicker">{{ item.id }} · {{ item.plantilla_info_meta }}</span>
                             <div class="wa-bubble" style="margin-top:10px;">
                                 <p><strong>{{ item.titulo }}</strong></p>
-                                <p>Precio normal: <strong>${{ item.precio_normal }}</strong></p>
-                                <p>Hoy con descuento: <strong>${{ item.precio_descuento }}</strong></p>
+                                <p>Precio: <strong>${{ item.precio_normal }}</strong></p>
+                                <p style="color:#537080; font-size:0.88rem;">Plantilla Meta: <code>{{ item.plantilla_info_meta }}</code></p>
                                 <div class="wa-buttons">
                                     <div class="wa-button"><span>Ver video</span><small>video_{{ item.id }}</small></div>
                                     <div class="wa-button"><span>Ver PDF</span><small>pdf_{{ item.id }}</small></div>
                                     <div class="wa-button"><span>Comprar</span><small>comprar_{{ item.id }}</small></div>
-                                    <div class="wa-button"><span>Descuento</span><small>descuento_{{ item.id }}</small></div>
-                                    <div class="wa-button"><span>Pagar Nequi</span><small>pagar_nequi_{{ item.id }}</small></div>
-                                    <div class="wa-button"><span>Pagar Daviplata</span><small>pagar_daviplata_{{ item.id }}</small></div>
                                 </div>
+                                <p style="margin-top:10px; color:#537080; font-size:0.82rem;">Después de Comprar &rarr; pagar_nequi / pagar_daviplata</p>
                             </div>
                             <div class="catalogo-meta-footer">
                                 <div class="payload-inline"><strong>Plantilla info Meta:</strong> <code>{{ item.plantilla_info_meta }}</code></div>
@@ -3719,14 +3879,15 @@ PANEL_HTML = """
                             {% for item in catalogo_items %}
                             <div class="meta-guia-card">
                                 <h4>{{ item.titulo }} ({{ item.id }})</h4>
-                                <p><strong>Plantilla requerida:</strong> <code>info_{{ item.id }}_v1</code></p>
+                                <p><strong>Plantilla única requerida:</strong> <code>{{ item.plantilla_info_meta }}</code></p>
+                                <p style="font-size:0.85rem; color:#537080;">Esta plantilla debe tener botones con payloads: <code>video_{{ item.id }}</code>, <code>pdf_{{ item.id }}</code>, <code>comprar_{{ item.id }}</code></p>
                                 <div class="payload-grid">
-                                    <div class="payload-chip"><strong>video</strong><div class="payload-copy-row"><code>video_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload video_{{ item.id }}" onclick="copiarPayload('video_{{ item.id }}', this)">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pdf</strong><div class="payload-copy-row"><code>pdf_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pdf_{{ item.id }}" onclick="copiarPayload('pdf_{{ item.id }}', this)">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>comprar</strong><div class="payload-copy-row"><code>comprar_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload comprar_{{ item.id }}" onclick="copiarPayload('comprar_{{ item.id }}', this)">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pagar_nequi</strong><div class="payload-copy-row"><code>pagar_nequi_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_nequi_{{ item.id }}" onclick="copiarPayload('pagar_nequi_{{ item.id }}', this)">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pagar_daviplata</strong><div class="payload-copy-row"><code>pagar_daviplata_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_daviplata_{{ item.id }}" onclick="copiarPayload('pagar_daviplata_{{ item.id }}', this)">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>descuento</strong><div class="payload-copy-row"><code>descuento_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload descuento_{{ item.id }}" onclick="copiarPayload('descuento_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>video (botón 1)</strong><div class="payload-copy-row"><code>video_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload video_{{ item.id }}" onclick="copiarPayload('video_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pdf (botón 2)</strong><div class="payload-copy-row"><code>pdf_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pdf_{{ item.id }}" onclick="copiarPayload('pdf_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>comprar (botón 3)</strong><div class="payload-copy-row"><code>comprar_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload comprar_{{ item.id }}" onclick="copiarPayload('comprar_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_nequi (después de comprar)</strong><div class="payload-copy-row"><code>pagar_nequi_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_nequi_{{ item.id }}" onclick="copiarPayload('pagar_nequi_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_daviplata (después de comprar)</strong><div class="payload-copy-row"><code>pagar_daviplata_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_daviplata_{{ item.id }}" onclick="copiarPayload('pagar_daviplata_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip" style="border-color:#e8a85a; background:#fffbf3;"><strong>descuento (solo rescate/solicitud explícita)</strong><div class="payload-copy-row"><code>descuento_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload descuento_{{ item.id }}" onclick="copiarPayload('descuento_{{ item.id }}', this)">Copiar</button></div><small style="color:#8a5e2a; font-size:0.8rem;">Solo se activa por payload explícito o por lógica de abandono, no aparece como botón en la plantilla de info.</small></div>
                                 </div>
                             </div>
                             {% endfor %}
@@ -4017,7 +4178,7 @@ PANEL_HTML = """
         </section>
         <section class="card panel-section is-hidden" id="prueba_meta">
             <h2><i class="bi bi-send-check"></i> Prueba de Conexión de Plantillas Meta</h2>
-            <p class="helper">Envía una plantilla directamente a la API de Meta para verificar la conexión. Usa <strong>hello_world_p</strong> con idioma <strong>en_US</strong> para una prueba rápida. Las variables son opcionales: solo complétalas si tu plantilla las requiere.</p>
+            <p class="helper">Envía una plantilla con variables dinámicas directamente a la API de Meta para verificar la conexión. La plantilla de referencia es: <em>"Hi &#123;&#123;1&#125;&#125;, we need to reschedule your &#123;&#123;2&#125;&#125;. Reply Reschedule to pick a new time."</em></p>
             {% if mensaje %}<div class="alerta">{{ mensaje }}</div>{% endif %}
             <form method="POST" action="{{ url_for('test_meta') }}">
                 <div class="grid">
@@ -4028,18 +4189,18 @@ PANEL_HTML = """
                     </div>
                     <div>
                         <label for="test_template_nombre">Nombre de la plantilla</label>
-                        <input id="test_template_nombre" type="text" name="test_template_nombre" value="{{ test_template_nombre or 'hello_world_p' }}" required>
+                        <input id="test_template_nombre" type="text" name="test_template_nombre" value="{{ test_template_nombre or 'hello_world' }}" required>
                     </div>
                     <div>
                         <label for="test_template_idioma">Idioma</label>
                         <input id="test_template_idioma" type="text" name="test_template_idioma" value="{{ test_template_idioma or 'en_US' }}" required>
                     </div>
                     <div>
-                        <label for="test_template_var1">Variable &#123;&#123;1&#125;&#125; (opcional)</label>
+                        <label for="test_template_var1">Variable &#123;&#123;1&#125;&#125; (ej. nombre del cliente)</label>
                         <input id="test_template_var1" type="text" name="test_template_var1" value="{{ test_template_var1 or '' }}" placeholder="ej. Juan">
                     </div>
                     <div>
-                        <label for="test_template_var2">Variable &#123;&#123;2&#125;&#125; (opcional)</label>
+                        <label for="test_template_var2">Variable &#123;&#123;2&#125;&#125; (ej. motivo de la cita)</label>
                         <input id="test_template_var2" type="text" name="test_template_var2" value="{{ test_template_var2 or '' }}" placeholder="ej. cita médica">
                     </div>
                 </div>
@@ -4068,7 +4229,9 @@ PANEL_HTML = """
     <script>
         const MENSAJES_DEFAULT = {{ mensajes_default_json|safe }};
         const PENDIENTES_INICIAL = {{ pendientes_total }};
-        const AUTO_INICIAR_TUTORIAL = {{ 'true' if auto_iniciar_tutorial else 'false' }};
+        // AUTO_INICIAR_TUTORIAL: true solo si tutorial_habilitado Y auto_iniciar_tutorial están activos
+        const AUTO_INICIAR_TUTORIAL = {{ 'true' if (tutorial_habilitado and auto_iniciar_tutorial) else 'false' }};
+        const TUTORIAL_HABILITADO = {{ 'true' if tutorial_habilitado else 'false' }};
     </script>
     <script>
         let wizardStepActual = 1;
@@ -4759,6 +4922,8 @@ def admin():
             datos_bot["numero_admin"] = normalizar_numero_whatsapp(datos_bot.get("numero_admin", ""))
             datos_bot["ocultar_tutorial_panel"] = request.form.get("ocultar_tutorial_panel") == "on"
             datos_bot["auto_iniciar_tutorial"] = request.form.get("auto_iniciar_tutorial") == "on"
+            # Nuevo campo: tutorial_habilitado. Si el checkbox está desmarcado, el tutorial no arranca al cargar.
+            datos_bot["tutorial_habilitado"] = request.form.get("tutorial_habilitado") == "on"
 
             if request.form.get("reset_plantillas_meta") == "1":
                 datos_bot["catalogo_plantillas_meta_custom"] = {}
@@ -5019,11 +5184,25 @@ def admin_difusion():
     )
 
 
-@app.route('/test_meta', methods=['POST'])
+@app.route('/test_meta', methods=['GET', 'POST'])
 def test_meta():
+    """Ruta para probar plantillas Meta.
+    GET: redirige al panel en pestaña prueba_meta.
+    POST: envía la plantilla y redirige con el resultado.
+    Correcciones aplicadas:
+    - Acepta GET para evitar error 405.
+    - Variables {{1}} y {{2}} opcionales (plantillas sin variables funcionan).
+    - Usa API v19.0 (más reciente y estable).
+    - Muestra respuesta completa de Meta en mensaje de resultado.
+    - No requiere CSRF ni dependencias externas para funcionar.
+    """
     global datos_bot
+
+    if request.method == 'GET':
+        return redirect(url_for('admin', tab='prueba_meta'))
+
     numero_destino = normalizar_numero_whatsapp(request.form.get("numero_destino") or "")
-    nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world_p").strip()
+    nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world").strip()
     idioma = (request.form.get("test_template_idioma") or "en_US").strip()
     var1 = (request.form.get("test_template_var1") or "").strip()
     var2 = (request.form.get("test_template_var2") or "").strip()
@@ -5033,55 +5212,75 @@ def test_meta():
     datos_bot["test_template_idioma"] = idioma
     datos_bot["test_template_var1"] = var1
     datos_bot["test_template_var2"] = var2
-    guardar_datos_bot()
+    try:
+        guardar_datos_bot()
+    except Exception:
+        pass
 
     if not numero_destino:
-        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
+        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino válido (solo dígitos, código de país incluido)."))
+    if not nombre_plantilla:
+        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar el nombre de la plantilla."))
 
+    # Usar credenciales activas del bot
     id_telefono = (datos_bot.get("id_telefono") or ID_TELEFONO_DEFAULT).strip() or ID_TELEFONO_DEFAULT
     token_meta = (datos_bot.get("token_meta") or TOKEN_META_DEFAULT).strip() or TOKEN_META_DEFAULT
-    url = f"https://graph.facebook.com/v25.0/{id_telefono}/messages"
+
+    # API v19.0: más reciente y compatible
+    url_api = f"https://graph.facebook.com/v19.0/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
     }
 
-    template_data = {
-        "name": nombre_plantilla,
-        "language": {"code": idioma},
-    }
-    params = []
+    # Construir componentes de variables solo si se proporcionaron
+    parameters = []
     if var1:
-        params.append({"type": "text", "text": var1})
+        parameters.append({"type": "text", "text": var1})
     if var2:
-        params.append({"type": "text", "text": var2})
-    if params:
-        template_data["components"] = [{"type": "body", "parameters": params}]
+        parameters.append({"type": "text", "text": var2})
+
+    template_payload = {
+        "name": nombre_plantilla,
+        "language": {"code": idioma}
+    }
+    if parameters:
+        template_payload["components"] = [
+            {
+                "type": "body",
+                "parameters": parameters
+            }
+        ]
 
     payload = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
         "type": "template",
-        "template": template_data
+        "template": template_payload
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url_api, headers=headers, json=payload, timeout=30)
         status_code = resp.status_code
-        response_text = resp.text
-        if status_code == 200:
-            msg = f"✅ Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}."
+        response_text = resp.text[:500]  # Limitar para evitar URLs muy largas
+        if status_code in (200, 201):
+            msg = f"OK Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}. HTTP {status_code}."
         else:
             try:
                 error_data = resp.json()
                 error_info = error_data.get("error", {}) if isinstance(error_data, dict) else {}
                 error_code = error_info.get("code", status_code)
+                error_fbtrace = error_info.get("fbtrace_id", "")
                 error_message = error_info.get("message") or response_text
-                msg = f"❌ Error Meta (código {error_code}, HTTP {status_code}): {error_message}"
+                msg = f"Error Meta codigo={error_code} HTTP={status_code}: {error_message}"
+                if error_fbtrace:
+                    msg += f" | fbtrace_id={error_fbtrace}"
             except Exception:
-                msg = f"❌ Error Meta (HTTP {status_code}): {response_text}"
+                msg = f"Error Meta HTTP {status_code}: {response_text}"
+    except requests.exceptions.Timeout:
+        msg = "Error de conexion: timeout al contactar la API de Meta. Verifica el token y el ID de telefono."
     except Exception as exc:
-        msg = f"❌ Error de conexión al enviar la plantilla: {exc}"
+        msg = f"Error de conexion al enviar la plantilla: {str(exc)[:200]}"
 
     return redirect(url_for('admin', tab='prueba_meta', msg=msg))
 
