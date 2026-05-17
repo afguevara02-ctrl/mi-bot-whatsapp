@@ -1,18 +1,14 @@
 from flask import Flask, request, jsonify, redirect, render_template_string, url_for, send_file
 from pathlib import Path
-from threading import Timer, Thread
+from threading import Timer
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from io import BytesIO
 from openpyxl import Workbook
-import atexit
 import json
 import re
 import requests
-import shutil
-import subprocess
 import time
-import webbrowser
 import os
 
 app = Flask(__name__)
@@ -49,25 +45,13 @@ DEFAULT_FLOWS = {
     "usar_lista_pago": True
 }
 
-DEFAULT_SIMULACION_CLIENTE_CUSTOM = {
-    "sim_cliente_custom_apertura": "Hola, vi tu anuncio y quiero saber bien como funciona el material.",
-    "sim_cliente_custom_interes": "Me interesa, pero quiero ver calidad antes de pagar.",
-    "sim_cliente_custom_objecion": "Se ve bueno, aunque ahora estoy comparando opciones.",
-    "sim_cliente_custom_confirmacion": "Listo, me decidí. Quiero comprar hoy.",
-    "sim_cliente_custom_comprobante": "Ya hice el pago, te envio el comprobante en un momento.",
-    "sim_cliente_custom_cierre": "Gracias, ya recibi todo correctamente."
-}
-
 DEFAULT_DATOS_BOT = {
     "token_meta": TOKEN_META_DEFAULT,
     "id_telefono": ID_TELEFONO_DEFAULT,
     "nombre_vendedor": "Tu nombre",
     "numero_admin": "573000000000",
-    "precio_normal": "15000",
-    "precio_descuento": "10000",
     "nequi": "3000000000",
     "daviplata": "3000000000",
-    "bancolombia": "Ahorros 0000000000",
     "llave": "Llave 0000000000",
     "link_video": "",
     "link_pdf_demo": "",
@@ -79,21 +63,14 @@ DEFAULT_DATOS_BOT = {
     "mensaje_descuento": "Hoy tenemos una promocion especial por tiempo limitado.",
     "mensaje_descuento_ultima_oportunidad": "Ultima oportunidad para activar tu acceso con promocion.",
     "mensaje_respuesta_gracias": "Gracias por confirmar. Si necesitas algo mas, aqui estoy.",
-    "mensaje_cuentas_cobro": "Medios de pago disponibles: Nequi, Daviplata, Bancolombia y Llave.",
+    "mensaje_cuentas_cobro": "Medios de pago disponibles: Nequi, Daviplata y Llave.",
     "mensaje_confirmacion_pago": "Envia tu comprobante por este chat para validar el acceso.",
     "mensaje_entrega_final": "Acceso enviado. Disfruta el material.",
     "visitas_info": 0,
     "flujos_automaticos": DEFAULT_FLOWS.copy(),
     "catalogo_plantillas_meta_custom": {},
-    "auto_pinggy": True,
     "ocultar_tutorial_panel": False,
     "auto_iniciar_tutorial": True,
-    "sim_cliente_custom_apertura": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_apertura"],
-    "sim_cliente_custom_interes": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_interes"],
-    "sim_cliente_custom_objecion": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_objecion"],
-    "sim_cliente_custom_confirmacion": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_confirmacion"],
-    "sim_cliente_custom_comprobante": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_comprobante"],
-    "sim_cliente_custom_cierre": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_cierre"],
     "test_template_nombre": "hello_world_p",
     "test_template_idioma": "en_US",
     "test_template_var1": "",
@@ -189,7 +166,6 @@ BOTONES_RESPUESTA = {
     "comprar": "Comprar",
     "nequi": "Nequi",
     "daviplata": "Daviplata",
-    "bancolombia": "Bancolombia",
     "llave": "Llave",
     "descuento": "Descuento",
     "ya_pague": "Ya pague",
@@ -236,14 +212,14 @@ CATALOGO_PLANTILLAS_META = {
     # ---------------------------------------------------------------
     # plantilla_cuentas_cobro
     # Se envia al elegir metodo de pago (pagar_nequi_[id] etc.)
-    # Variables: nequi, daviplata, bancolombia, llave, instruccion_pago
+    # Variables: nequi, daviplata, llave, instruccion_pago
     # Solicita comprobante al final.
     # ---------------------------------------------------------------
     "plantilla_cuentas_cobro": {
         "nombre_meta": "plantilla_cuentas_cobro",
         "idioma": "es",
-        "texto_referencia": "Datos para realizar tu pago:\n\nNequi: {{1}}\nDaviplata: {{2}}\nBancolombia: {{3}}\nLlave: {{4}}\n\n{{5}}\n\nUna vez realizado el pago, envia el comprobante (foto o PDF) por este mismo chat para validar y liberar tu acceso.",
-        "variables_ordenadas": ["nequi", "daviplata", "bancolombia", "llave", "instruccion_pago"]
+        "texto_referencia": "Datos para realizar tu pago:\n\nNequi: {{1}}\nDaviplata: {{2}}\nLlave: {{3}}\n\n{{4}}\n\nUna vez realizado el pago, envia el comprobante (foto o PDF) por este mismo chat para validar y liberar tu acceso.",
+        "variables_ordenadas": ["nequi", "daviplata", "llave", "instruccion_pago"]
     },
     # ---------------------------------------------------------------
     # plantilla_entrega_final
@@ -332,7 +308,7 @@ def construir_manual_meta_rows():
             "fase": "Cuentas de cobro",
             "plantilla": "plantilla_cuentas_cobro",
             "texto_referencia": "Datos bancarios y solicitud de comprobante",
-            "variables": "{{1}} = nequi | {{2}} = daviplata | {{3}} = bancolombia | {{4}} = llave | {{5}} = instruccion_pago",
+            "variables": "{{1}} = nequi | {{2}} = daviplata | {{3}} = llave | {{4}} = instruccion_pago",
             "botones": "Sin botones obligatorios",
             "payloads": "Flujo posterior: ya_pague"
         },
@@ -361,24 +337,10 @@ def construir_manual_meta_rows():
     return filas
 
 
-def construir_manual_meta_markdown():
-    filas = construir_manual_meta_rows()
-    lineas = [
-        "| Fase | Plantilla | Texto de referencia | Variables requeridas | Botones visibles | Payloads exactos |",
-        "|---|---|---|---|---|---|",
-    ]
-    for fila in filas:
-        lineas.append(
-            f"| {fila['fase']} | {fila['plantilla']} | {fila['texto_referencia']} | {fila['variables']} | {fila['botones']} | {fila['payloads']} |"
-        )
-    return "\n".join(lineas)
-
-
 def exportar_catalogo_plantillas_meta_json():
     payload = {
         "templates": obtener_catalogo_plantillas_meta(),
         "manual_meta_rows": construir_manual_meta_rows(),
-        "manual_meta_markdown": construir_manual_meta_markdown(),
         "catalogo_productos": catalogo_productos,
     }
     buffer = BytesIO()
@@ -387,85 +349,7 @@ def exportar_catalogo_plantillas_meta_json():
     return buffer
 
 
-def _texto_clave(clave):
-    mapa = {
-        "bienvenida_general": datos_bot.get("mensaje_bienvenida", ""),
-        "info_producto": "Informacion del producto seleccionada.",
-        "video_demo_link": "Aqui tienes el video demo.",
-        "despues_demo_producto": datos_bot.get("mensaje_despues_demo", ""),
-        "descuento_producto": datos_bot.get("mensaje_descuento", ""),
-        "cuentas_cobro": datos_bot.get("mensaje_cuentas_cobro", ""),
-        "confirmacion_pago": datos_bot.get("mensaje_confirmacion_pago", ""),
-        "comprobante_recibido": "Comprobante recibido. En revision.",
-        "comprobante_en_revision": "Tu comprobante sigue en revision.",
-        "entrega_final": datos_bot.get("mensaje_entrega_final", ""),
-        "respuesta_gracias": datos_bot.get("mensaje_respuesta_gracias", ""),
-        "descuento_ultima_oportunidad": datos_bot.get("mensaje_descuento_ultima_oportunidad", "")
-    }
-    return str(mapa.get(clave, "") or "").strip()
-
-
-def construir_escenarios_simulacion_whatsapp(catalogo):
-    mensajes_custom = {
-        "sim_cliente_custom_apertura": datos_bot.get("sim_cliente_custom_apertura", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_apertura"]),
-        "sim_cliente_custom_interes": datos_bot.get("sim_cliente_custom_interes", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_interes"]),
-        "sim_cliente_custom_objecion": datos_bot.get("sim_cliente_custom_objecion", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_objecion"]),
-        "sim_cliente_custom_confirmacion": datos_bot.get("sim_cliente_custom_confirmacion", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_confirmacion"]),
-        "sim_cliente_custom_comprobante": datos_bot.get("sim_cliente_custom_comprobante", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_comprobante"]),
-        "sim_cliente_custom_cierre": datos_bot.get("sim_cliente_custom_cierre", DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_cierre"]),
-    }
-
-    escenarios = {
-        "directo_compra": {
-            "titulo": "Compra directa",
-            "simulacion": [
-                {"rol": "bot", "etapa": "bienvenida", "texto": _texto_clave("bienvenida_general")},
-                {"rol": "cliente", "etapa": "interes", "texto": "Quiero comprar"},
-                {"rol": "bot", "etapa": "cuentas", "texto": _texto_clave("cuentas_cobro")},
-                {"rol": "cliente", "etapa": "comprobante", "texto": "Ya pague"},
-                {"rol": "bot", "etapa": "entrega", "texto": _texto_clave("entrega_final")}
-            ]
-        },
-        "personalizado_panel": {
-            "titulo": "Escenario personalizado",
-            "simulacion": [
-                {"rol": "bot", "etapa": "bienvenida", "texto": _texto_clave("bienvenida_general")},
-                {"rol": "cliente", "etapa": "apertura", "texto": mensajes_custom["sim_cliente_custom_apertura"]},
-                {"rol": "bot", "etapa": "info", "texto": _texto_clave("info_producto")},
-                {"rol": "cliente", "etapa": "interes", "texto": mensajes_custom["sim_cliente_custom_interes"]},
-                {"rol": "bot", "etapa": "video", "texto": _texto_clave("video_demo_link")},
-                {"rol": "cliente", "etapa": "objecion", "texto": mensajes_custom["sim_cliente_custom_objecion"]},
-                {"rol": "bot", "etapa": "descuento", "texto": _texto_clave("descuento_producto")},
-                {"rol": "cliente", "etapa": "confirmacion", "texto": mensajes_custom["sim_cliente_custom_confirmacion"]},
-                {"rol": "bot", "etapa": "confirmacion_pago", "texto": _texto_clave("confirmacion_pago")},
-                {"rol": "cliente", "etapa": "comprobante", "texto": mensajes_custom["sim_cliente_custom_comprobante"]},
-                {"rol": "bot", "etapa": "entrega", "texto": _texto_clave("entrega_final")},
-                {"rol": "cliente", "etapa": "cierre", "texto": mensajes_custom["sim_cliente_custom_cierre"]}
-            ]
-        }
-    }
-
-    for escenario in escenarios.values():
-        escenario["guion"] = construir_guion_simulacion_whatsapp(escenario.get("simulacion", []))
-    return escenarios
-
-
-def construir_simulacion_conversacion_whatsapp(catalogo, escenario="directo_compra"):
-    escenarios = construir_escenarios_simulacion_whatsapp(catalogo)
-    return (escenarios.get(escenario) or escenarios.get("directo_compra") or {}).get("simulacion", [])
-
-
-def construir_guion_simulacion_whatsapp(simulacion):
-    lineas = []
-    for idx, item in enumerate(simulacion or [], start=1):
-        prefijo = "BOT" if item.get("rol") == "bot" else "CLIENTE"
-        texto = str(item.get("texto", "") or "").strip()
-        lineas.append(f"{idx:02d}. {prefijo}: {texto}")
-    return "\n\n".join(lineas)
-
-TUNNEL_PROCESS = None
 PUBLIC_TUNNEL_URL = None
-LOCALHOST_RUN_URL_REGEX = re.compile(r"https://[a-z0-9.-]+(?:localhost\.run|lhr\.life)", re.IGNORECASE)
 
 
 # ==========================================
@@ -571,88 +455,6 @@ def guardar_estado_runtime():
     )
 
 
-def extraer_url_tunel(texto):
-    coincidencia = LOCALHOST_RUN_URL_REGEX.search(str(texto or ""))
-    if not coincidencia:
-        return None
-    return coincidencia.group(0).rstrip("/")
-
-
-def vigilar_salida_tunel(proceso):
-    global PUBLIC_TUNNEL_URL
-
-    if not proceso or not proceso.stdout:
-        return
-
-    try:
-        for linea in proceso.stdout:
-            url_publica = extraer_url_tunel(linea)
-            if url_publica and not PUBLIC_TUNNEL_URL:
-                PUBLIC_TUNNEL_URL = url_publica
-                print(f"[LOCALHOST.RUN] Tunnel iniciado: {PUBLIC_TUNNEL_URL}")
-    except Exception as error:
-        print(f"[LOCALHOST.RUN] Error leyendo salida del tunnel: {error}")
-
-
-def iniciar_tunel_localhost_run(port=5000):
-    global TUNNEL_PROCESS
-    global PUBLIC_TUNNEL_URL
-
-    if PUBLIC_TUNNEL_URL:
-        print(f"[LOCALHOST.RUN] Tunnel existente detectado: {PUBLIC_TUNNEL_URL}")
-        return
-
-    if TUNNEL_PROCESS and TUNNEL_PROCESS.poll() is None:
-        print("[LOCALHOST.RUN] Ya existe un proceso de tunnel en ejecucion.")
-        return
-
-    ssh_path = shutil.which("ssh")
-    if ssh_path is None:
-        print("[LOCALHOST.RUN] No se encontro 'ssh' en el sistema. Instala OpenSSH Client o agrega ssh al PATH para abrir el tunnel automatico.")
-        return
-
-    comando = [
-        ssh_path,
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "BatchMode=yes",
-        "-o", "ServerAliveInterval=30",
-        "-o", "ConnectTimeout=10",
-        "-o", "ExitOnForwardFailure=yes",
-        "-R", f"80:localhost:{port}",
-        "nokey@localhost.run",
-    ]
-
-    try:
-        TUNNEL_PROCESS = subprocess.Popen(
-            comando,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="ignore"
-        )
-    except OSError as error:
-        print(f"[LOCALHOST.RUN] No fue posible iniciar localhost.run: {error}")
-        return
-
-    Thread(target=vigilar_salida_tunel, args=(TUNNEL_PROCESS,), daemon=True).start()
-
-    for _ in range(40):
-        if PUBLIC_TUNNEL_URL:
-            return
-        if TUNNEL_PROCESS.poll() is not None:
-            break
-        time.sleep(0.5)
-
-    print("[LOCALHOST.RUN] Se inicio el proceso, pero no se pudo obtener la URL publica. Revisa la salida de ssh por si localhost.run entrego la URL con otro formato.")
-
-
-def cerrar_tunel_localhost_run():
-    if TUNNEL_PROCESS and TUNNEL_PROCESS.poll() is None:
-        TUNNEL_PROCESS.terminate()
-
-
 def cargar_datos_bot():
     datos = DEFAULT_DATOS_BOT.copy()
     if CONFIG_PATH.exists():
@@ -662,9 +464,20 @@ def cargar_datos_bot():
                 datos.update(datos_guardados)
         except (json.JSONDecodeError, OSError):
             pass
-    if "auto_pinggy" not in datos:
-        datos["auto_pinggy"] = datos.get("auto_ngrok", True)
-    datos.pop("auto_ngrok", None)
+    for campo_obsoleto in (
+        "auto_ngrok",
+        "auto_pinggy",
+        "precio_normal",
+        "precio_descuento",
+        "bancolombia",
+        "sim_cliente_custom_apertura",
+        "sim_cliente_custom_interes",
+        "sim_cliente_custom_objecion",
+        "sim_cliente_custom_confirmacion",
+        "sim_cliente_custom_comprobante",
+        "sim_cliente_custom_cierre",
+    ):
+        datos.pop(campo_obsoleto, None)
     return datos
 
 
@@ -1433,7 +1246,7 @@ def registrar_venta_aprobada(numero_cliente, solicitud, aprobado_desde="panel"):
             precio_base = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
             valor_venta = convertir_monto(precio_base)
         else:
-            valor_venta = convertir_monto(datos_bot.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0"))
+            valor_venta = 0
 
     origen = obtener_origen_cliente(numero_cliente)
     estado_actual = estados_clientes.get(numero_cliente, {})
@@ -1648,12 +1461,11 @@ def construir_kwargs_plantilla(numero_cliente="", clave_catalogo="", producto=No
         "numero_cliente": numero_cliente,
         "catalogo_clave": clave,
         "nombre_producto": prod.get("titulo", estado.get("producto_titulo", clave or "material")),
-        "precio": str(precio_base or datos_bot.get("precio_normal", "")),
-        "precio_normal": str(prod.get("precio_normal", "") or datos_bot.get("precio_normal", "")),
-        "precio_descuento": str(precio_desc or datos_bot.get("precio_descuento", "")),
+        "precio": str(precio_base or "0"),
+        "precio_normal": str(prod.get("precio_normal", "") or "0"),
+        "precio_descuento": str(precio_desc or "0"),
         "nequi": datos_bot.get("nequi", ""),
         "daviplata": datos_bot.get("daviplata", ""),
-        "bancolombia": datos_bot.get("bancolombia", ""),
         "llave": datos_bot.get("llave", ""),
         "link_video": prod.get("link_video", "") or datos_bot.get("link_video", ""),
         "link_pdf": prod.get("link_pdf", "") or datos_bot.get("link_pdf_demo", ""),
@@ -1795,7 +1607,7 @@ def enviar_datos_pago(numero_cliente, metodo_pago):
         precio_producto = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
         valor_venta = convertir_monto(precio_producto)
     else:
-        valor_venta = convertir_monto(datos_bot.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0"))
+        valor_venta = 0
     estado_nuevo = dict(estado_actual)
     estado_nuevo.update({
         "etapa": "medio_pago",
@@ -2541,7 +2353,7 @@ def webhook():
         # 7. PAGAR_[METODO]_[ID] -> datos bancarios + solicitud comprobante
         elif accion == "pagar":
             clave, producto = resolver_producto_por_id_o_estado(numero_cliente, objetivo_payload)
-            if not producto or metodo_pago not in {"nequi", "daviplata", "bancolombia", "llave"}:
+            if not producto or metodo_pago not in {"nequi", "daviplata", "llave"}:
                 enviar_mensaje(
                     numero_cliente,
                     "No pude identificar el metodo de pago o el producto. Escribe menu para retomar."
@@ -2556,7 +2368,7 @@ def webhook():
                 enviar_datos_pago(numero_cliente, metodo_pago)
 
         # 8. METODO DE PAGO ESCRITO DIRECTAMENTE (texto libre compatible)
-        elif texto_recibido in {"nequi", "daviplata", "bancolombia", "llave"}:
+        elif texto_recibido in {"nequi", "daviplata", "llave"}:
             enviar_datos_pago(numero_cliente, texto_recibido)
 
         # 9. YA_PAGUE -> marcar esperando comprobante
@@ -3416,29 +3228,7 @@ PANEL_HTML = """
                     Solicitudes de info
                     <strong>{{ visitas_info }}</strong>
                 </div>
-                <div class="stat">
-                    Precio promocional
-                    <strong>${{ precio_descuento }}</strong>
-                </div>
             </div>
-            {% if tunnel_url %}
-            <p>
-                Tunnel localhost.run activo: <strong>{{ tunnel_url }}</strong><br>
-                Webhook sugerido: <strong>{{ tunnel_url }}/webhook</strong>
-            </p>
-            <p style="margin-top: 10px;">
-                <a href="https://developers.facebook.com/" target="_blank" class="btn" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    📱 Configurar Webhook en Meta
-                </a>
-            </p>
-            <small style="display: block; margin-top: 10px; color: #666;">
-                <strong>Instrucciones:</strong> Copia la URL del webhook, ve a tu app de Meta, ve a Webhooks, y pega la URL en el campo de Webhook URL. Después, pega el token de verificación: <code style="background: #f0f0f0; padding: 2px 5px; border-radius: 3px;">Kiratsu.52310299*</code>
-            </small>
-            {% else %}
-            <p>
-                Tunnel localhost.run no disponible. Si quieres exponer el webhook, asegúrate de tener `ssh` instalado y ejecuta este script de nuevo.
-            </p>
-            {% endif %}
             <div class="estado-media">
                 <p><strong>Estado rapido de archivos</strong></p>
                 <p>Video demo: {% if estado_video.link %}Guardado{% else %}No configurado{% endif %}</p>
@@ -3485,24 +3275,12 @@ PANEL_HTML = """
                         <span class="helper">Aqui te llegan los avisos de comprobantes para aprobar desde WhatsApp.</span>
                     </div>
                     <div>
-                        <label for="precio_normal">Precio normal</label>
-                        <input id="precio_normal" type="text" name="precio_normal" value="{{ precio_normal }}">
-                    </div>
-                    <div>
-                        <label for="precio_descuento">Precio con descuento</label>
-                        <input id="precio_descuento" type="text" name="precio_descuento" value="{{ precio_descuento }}">
-                    </div>
-                    <div>
                         <label for="nequi">Nequi</label>
                         <input id="nequi" type="text" name="nequi" value="{{ nequi }}">
                     </div>
                     <div>
                         <label for="daviplata">Daviplata</label>
                         <input id="daviplata" type="text" name="daviplata" value="{{ daviplata }}">
-                    </div>
-                    <div>
-                        <label for="bancolombia">Bancolombia</label>
-                        <input id="bancolombia" type="text" name="bancolombia" value="{{ bancolombia }}">
                     </div>
                     <div>
                         <label for="llave">Llave</label>
@@ -3641,72 +3419,7 @@ PANEL_HTML = """
                             </table>
                         </div>
                         <div class="full estado-media" style="margin-top:8px;">
-                            <label style="margin-bottom:4px;">Markdown para copiar y pegar</label>
-                            <textarea id="manual_meta_markdown" readonly style="min-height:180px;">{{ manual_meta_markdown }}</textarea>
-                            <div class="actions" style="margin-top:8px;">
-                                <button class="btn-small" type="button" onclick="copiarTextoPorId('manual_meta_markdown')">Copiar guia Meta</button>
-                                <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="full estado-media" style="margin-top: 10px;">
-                        <label>Escenario personalizado (mensajes del cliente)</label>
-                        <small class="helper">Estos textos solo afectan la simulacion editable y te permiten ensayar conversaciones reales segun tu mercado.</small>
-                        <div class="grid" style="margin-top: 8px;">
-                            <div>
-                                <label for="sim_cliente_custom_apertura">Cliente: apertura</label>
-                                <textarea id="sim_cliente_custom_apertura" name="sim_cliente_custom_apertura" style="min-height:72px;">{{ sim_cliente_custom_apertura }}</textarea>
-                            </div>
-                            <div>
-                                <label for="sim_cliente_custom_interes">Cliente: interes/demo</label>
-                                <textarea id="sim_cliente_custom_interes" name="sim_cliente_custom_interes" style="min-height:72px;">{{ sim_cliente_custom_interes }}</textarea>
-                            </div>
-                            <div>
-                                <label for="sim_cliente_custom_objecion">Cliente: objecion</label>
-                                <textarea id="sim_cliente_custom_objecion" name="sim_cliente_custom_objecion" style="min-height:72px;">{{ sim_cliente_custom_objecion }}</textarea>
-                            </div>
-                            <div>
-                                <label for="sim_cliente_custom_confirmacion">Cliente: confirmacion de compra</label>
-                                <textarea id="sim_cliente_custom_confirmacion" name="sim_cliente_custom_confirmacion" style="min-height:72px;">{{ sim_cliente_custom_confirmacion }}</textarea>
-                            </div>
-                            <div>
-                                <label for="sim_cliente_custom_comprobante">Cliente: envio de comprobante</label>
-                                <textarea id="sim_cliente_custom_comprobante" name="sim_cliente_custom_comprobante" style="min-height:72px;">{{ sim_cliente_custom_comprobante }}</textarea>
-                            </div>
-                            <div>
-                                <label for="sim_cliente_custom_cierre">Cliente: cierre</label>
-                                <textarea id="sim_cliente_custom_cierre" name="sim_cliente_custom_cierre" style="min-height:72px;">{{ sim_cliente_custom_cierre }}</textarea>
-                            </div>
-                        </div>
-                        <small class="helper">Guarda configuración y luego elige el escenario "Escenario personalizado (editable)" para verlo aplicado.</small>
-                    </div>
-                    <div class="full estado-media" style="margin-top: 10px;">
-                        <label>Simulacion de conversacion WhatsApp (flujo completo)</label>
-                        <small class="helper">Esta vista usa tus plantillas actuales para simular conversaciones reales en distintos escenarios de venta.</small>
-                        <div style="margin-top: 8px;">
-                            <label for="simulacion_escenario_selector" style="margin-bottom:4px;">Escenario</label>
-                            <select id="simulacion_escenario_selector" onchange="cambiarEscenarioSimulacion()">
-                                {% for clave, data in simulacion_escenarios.items() %}
-                                <option value="{{ clave }}" {% if clave == simulacion_escenario_activo %}selected{% endif %}>{{ data.titulo }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        {% for clave, data in simulacion_escenarios.items() %}
-                        <div id="chat_simulacion_{{ clave }}" class="chat-simulacion {% if clave != simulacion_escenario_activo %}is-hidden{% endif %}" style="margin-top: 8px;">
-                            {% for item in data.simulacion %}
-                            <div class="chat-burbuja {{ 'bot' if item.rol == 'bot' else 'cliente' }}">
-                                <span class="chat-etiqueta">{{ 'Bot' if item.rol == 'bot' else 'Cliente' }} · {{ item.etapa }}</span>
-                                {{ item.texto }}
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endfor %}
-                        <div class="full estado-media" style="margin-top: 8px;">
-                            <label style="margin-bottom:4px;">Guion completo para copiar</label>
-                            <textarea id="simulacion_whatsapp_texto" readonly style="min-height:160px;">{{ simulacion_conversacion_texto }}</textarea>
-                            <div class="actions" style="margin-top:8px;">
-                                <button class="btn-small" type="button" onclick="copiarTextoPorId('simulacion_whatsapp_texto')">Copiar simulacion completa</button>
-                            </div>
+                            <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
                         </div>
                     </div>
                     <div class="full">
@@ -3756,20 +3469,11 @@ PANEL_HTML = """
                         </label>
                         <span class="helper">Puedes reactivarlo en cualquier momento desmarcando la opción y guardando.</span>
                     </div>
-                    <div class="full estado-media">
-                        <p><strong>Conectividad</strong></p>
-                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin:0;">
-                            <input type="checkbox" name="auto_pinggy" {% if auto_pinggy %}checked{% endif %}>
-                            Iniciar localhost.run automáticamente al arrancar la aplicación
-                        </label>
-                        <span class="helper">Si desactivas esta opción, podrás usar la app localmente sin exponer el webhook.</span>
-                    </div>
                 </div>
 
                 <div class="actions">
                     <button class="button" type="submit">Guardar configuración general</button>
                     <button class="btn-small button-danger" type="submit" name="reset_plantillas_meta" value="1" onclick="return confirm('Esto restaura la configuracion de plantillas Meta (nombre, idioma, texto y variables) a valores por defecto. ¿Continuar?');">Restaurar configuración de plantillas por defecto</button>
-                    <button class="btn-small button-danger" type="submit" name="reset_simulacion_custom" value="1" onclick="return confirm('Esto restaura los textos del escenario personalizado de simulacion a valores por defecto. ¿Continuar?');">Restaurar escenario personalizado</button>
                 </div>
             </form>
         </section>
@@ -3874,12 +3578,7 @@ PANEL_HTML = """
                     {% endfor %}
                 </div>
                 <div class="full estado-media" style="margin-top:12px;">
-                    <label style="margin-bottom:4px;">Markdown para copiar y pegar</label>
-                    <textarea id="manual_meta_markdown_catalogos" readonly style="min-height:180px;">{{ manual_meta_markdown }}</textarea>
-                    <div class="actions" style="margin-top:8px;">
-                        <button class="btn-small" type="button" onclick="copiarTextoPorId('manual_meta_markdown_catalogos')">Copiar guía Meta</button>
-                        <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
-                    </div>
+                    <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
                 </div>
             </div>
             <form method="POST" enctype="multipart/form-data">
@@ -4137,14 +3836,6 @@ PANEL_HTML = """
             </div>
         </section>
 
-        <section class="card panel-section is-hidden" id="vista_previa">
-            <h2>Vista previa del mensaje inicial</h2>
-            <div class="preview">
-                {{ mensaje_bienvenida }}<br><br>
-                El cliente podra abrir el video demo, recibir el PDF, pedir descuento y luego comprar con botones en WhatsApp.
-            </div>
-        </section>
-
         <section class="card panel-section is-hidden" id="reportes">
             <h2>Reportes de ventas y contabilidad</h2>
             <form id="tutorial-reportes-filtros" method="GET" action="{{ url_for('admin') }}#reportes" class="actions" style="margin-bottom: 10px;">
@@ -4353,7 +4044,6 @@ PANEL_HTML = """
                             <option value="">Todos</option>
                             <option value="nequi">Nequi</option>
                             <option value="daviplata">Daviplata</option>
-                            <option value="bancolombia">Bancolombia</option>
                             <option value="llave">Llave</option>
                         </select>
                     </div>
@@ -4426,8 +4116,6 @@ PANEL_HTML = """
         const MENSAJES_DEFAULT = {{ mensajes_default_json|safe }};
         const PENDIENTES_INICIAL = {{ pendientes_total }};
         const AUTO_INICIAR_TUTORIAL = {{ 'true' if auto_iniciar_tutorial else 'false' }};
-        const SIMULACION_ESCENARIOS = {{ simulacion_escenarios_json|safe }};
-        const SIMULACION_ESCENARIO_ACTIVO = {{ simulacion_escenario_activo|tojson }};
     </script>
     <script>
         let wizardStepActual = 1;
@@ -4530,24 +4218,6 @@ PANEL_HTML = """
             }
             input.select();
             document.execCommand("copy");
-        }
-
-        function cambiarEscenarioSimulacion() {
-            const selector = document.getElementById("simulacion_escenario_selector");
-            if (!selector) return;
-            const clave = selector.value;
-
-            document.querySelectorAll('[id^="chat_simulacion_"]').forEach((el) => {
-                el.classList.add("is-hidden");
-            });
-
-            const activo = document.getElementById(`chat_simulacion_${clave}`);
-            if (activo) activo.classList.remove("is-hidden");
-
-            const salida = document.getElementById("simulacion_whatsapp_texto");
-            if (!salida) return;
-            const escenario = (SIMULACION_ESCENARIOS && SIMULACION_ESCENARIOS[clave]) || null;
-            salida.value = escenario && escenario.guion ? escenario.guion : "";
         }
 
         function enfocarCatalogo(id) {
@@ -4832,7 +4502,6 @@ PANEL_HTML = """
 
                 const nequi = document.getElementById("nequi")?.value || "No configurado";
                 const daviplata = document.getElementById("daviplata")?.value || "No configurado";
-                const bancolombia = document.getElementById("bancolombia")?.value || "No configurado";
                 const llave = document.getElementById("llave")?.value || "No configurado";
                 const linkRecursos = document.getElementById("link_recursos_final")?.value || "";
                 const linkCanal = document.getElementById("link_canal_whatsapp")?.value || "";
@@ -4856,7 +4525,7 @@ PANEL_HTML = """
                     `CLIENTE: Quiero descuento\n` +
                     `BOT (descuento):\n${render(msgDesc)}\n\n` +
                     `CLIENTE: Pago con Nequi\n` +
-                    `BOT (datos de pago):\nNequi: ${nequi}\nDaviplata: ${daviplata}\nBancolombia: ${bancolombia}\nLlave: ${llave}\n\n` +
+                    `BOT (datos de pago):\nNequi: ${nequi}\nDaviplata: ${daviplata}\nLlave: ${llave}\n\n` +
                     `BOT (pedir comprobante):\n${render(msgComprobante)}\n\n` +
                     `BOT (entrega final):\n${render(msgEntrega)}`;
             });
@@ -4998,15 +4667,6 @@ PANEL_HTML = """
                     }
                 });
 
-                const vistaPrevia = document.getElementById("vista_previa");
-                if (vistaPrevia) {
-                    if (tabId === "configuracion") {
-                        vistaPrevia.classList.remove("is-hidden");
-                    } else {
-                        vistaPrevia.classList.add("is-hidden");
-                    }
-                }
-
                 tabs.forEach((btn) => {
                     const activo = btn.getAttribute("data-tab") === tabId;
                     btn.classList.toggle("active", activo);
@@ -5046,12 +4706,6 @@ PANEL_HTML = """
             activarDnDCatalogo();
             refrescarSelectorCatalogo();
             refrescarPreviewCatalogo();
-
-            const selectorEscenario = document.getElementById("simulacion_escenario_selector");
-            if (selectorEscenario && SIMULACION_ESCENARIO_ACTIVO) {
-                selectorEscenario.value = SIMULACION_ESCENARIO_ACTIVO;
-            }
-            cambiarEscenarioSimulacion();
 
             if (AUTO_INICIAR_TUTORIAL) {
                 setTimeout(() => iniciarTutorialPanel(), 350);
@@ -5123,25 +4777,19 @@ def admin():
             for campo in DEFAULT_DATOS_BOT:
                 if campo in {"visitas_info", "catalogo_plantillas_meta_custom"}:
                     continue
-                if campo in {"ocultar_tutorial_panel", "auto_iniciar_tutorial", "auto_pinggy", "auto_ngrok"}:
+                if campo in {"ocultar_tutorial_panel", "auto_iniciar_tutorial"}:
                     continue
                 valor = request.form.get(campo)
                 if valor is not None:
                     datos_bot[campo] = valor.strip()
             datos_bot["id_telefono"] = normalizar_numero_whatsapp(datos_bot.get("id_telefono", ""))
             datos_bot["numero_admin"] = normalizar_numero_whatsapp(datos_bot.get("numero_admin", ""))
-            datos_bot["auto_pinggy"] = request.form.get("auto_pinggy") == "on"
-            datos_bot.pop("auto_ngrok", None)
             datos_bot["ocultar_tutorial_panel"] = request.form.get("ocultar_tutorial_panel") == "on"
             datos_bot["auto_iniciar_tutorial"] = request.form.get("auto_iniciar_tutorial") == "on"
 
             if request.form.get("reset_plantillas_meta") == "1":
                 datos_bot["catalogo_plantillas_meta_custom"] = {}
                 mensaje_exito = "Configuracion de plantillas Meta restaurada a valores por defecto."
-            elif request.form.get("reset_simulacion_custom") == "1":
-                for clave, valor_default in DEFAULT_SIMULACION_CLIENTE_CUSTOM.items():
-                    datos_bot[clave] = valor_default
-                mensaje_exito = "Escenario personalizado restaurado a los textos por defecto."
             else:
                 catalogo_actual = obtener_catalogo_plantillas_meta()
                 custom_catalogo = {}
@@ -5288,14 +4936,7 @@ def admin():
     resumen_filtrado = obtener_resumen_ventas_de(ventas_filtradas)
     catalogo_plantillas_meta = obtener_catalogo_plantillas_meta()
     vista_previa_plantillas_meta = construir_vista_previa_plantillas_meta(catalogo_plantillas_meta)
-    simulacion_escenarios = construir_escenarios_simulacion_whatsapp(catalogo_plantillas_meta)
-    simulacion_escenario_activo = next(iter(simulacion_escenarios), "")
-    simulacion_conversacion_texto = (
-        simulacion_escenarios.get(simulacion_escenario_activo, {}).get("guion", "")
-        if simulacion_escenario_activo else ""
-    )
     manual_meta_rows = construir_manual_meta_rows()
-    manual_meta_markdown = construir_manual_meta_markdown()
     clientes_lista = sorted(
         clientes_vendidos.values(),
         key=lambda c: c.get("ultima_venta", ""),
@@ -5337,13 +4978,7 @@ def admin():
         mensajes_default_json=json.dumps(DEFAULT_MENSAJES_PRODUCTO, ensure_ascii=False),
         catalogo_plantillas_meta=catalogo_plantillas_meta,
         vista_previa_plantillas_meta=vista_previa_plantillas_meta,
-        simulacion_escenarios=simulacion_escenarios,
-        simulacion_escenarios_json=json.dumps(simulacion_escenarios, ensure_ascii=False),
-        simulacion_escenario_activo=simulacion_escenario_activo,
-        simulacion_conversacion_texto=simulacion_conversacion_texto,
         manual_meta_rows=manual_meta_rows,
-        manual_meta_markdown=manual_meta_markdown,
-        tunnel_url=PUBLIC_TUNNEL_URL,
         estado_video=obtener_estado_recurso(datos_bot.get("link_video", "")),
         estado_pdf=obtener_estado_recurso(datos_bot.get("link_pdf_demo", "")),
         **datos_bot
@@ -5563,64 +5198,5 @@ def admin_rechazar(numero):
     return redirect(url_for('admin', msg=f"No habia solicitud pendiente para {numero}."))
 
 
-def abrir_panel_en_navegador():
-    webbrowser.open("http://127.0.0.1:5000/admin")
-
-
 if __name__ == "__main__":
-    faltantes, opcionales = verificar_dependencias()
-    print("[BOT] Iniciando servidor de ventas...")
-    print(json.dumps(resumen_arranque(), ensure_ascii=False, indent=2))
-    if faltantes:
-        print("[BOT] Faltan dependencias obligatorias. Instala con:")
-        print("pip install -r requirements.txt")
-        raise SystemExit(1)
-    if opcionales:
-        print(f"[BOT] Dependencias opcionales no instaladas: {', '.join(opcionales)}")
-    if datos_bot.get("auto_pinggy", datos_bot.get("auto_ngrok", True)):
-        try:
-            iniciar_tunel_localhost_run(5000)
-        except Exception as exc:
-            print(f"[BOT] No se pudo iniciar localhost.run automaticamente: {exc}")
-    else:
-        print("[BOT] localhost.run automatico desactivado por configuracion.")
-    atexit.register(cerrar_tunel_localhost_run)
-    try:
-        Timer(1, abrir_panel_en_navegador).start()
-    except Exception:
-        pass
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
-
-
-# ==============================================================
-# TABLA MAESTRA DE PLANTILLAS META
-# Copia de TABLA_PLANTILLAS_META_UNIFICADA.md embebida como referencia.
-# Generada automaticamente junto con este archivo (versión UNIFICADO).
-# ==============================================================
-"""
-GUIA MAESTRA DE PLANTILLAS META - BOT DE VENTAS WHATSAPP (UNIFICADO FASE 3)
-=============================================================================
-
-| Fase del embudo             | Plantilla exacta Meta         | Variables requeridas                                      | Botones visibles              | Payloads exactos                                        |
-|-----------------------------|-------------------------------|-----------------------------------------------------------|-------------------------------|---------------------------------------------------------|
-| Menu inicial / Bienvenida   | plantilla_menu_general        | {{1}} = lista_productos                                   | Sin botones (texto libre)     | hola / menu / menu_principal / 1 / 2 / 3               |
-| Seguimiento post-PDF        | plantilla_seguimiento_pdf     | {{1}} = nombre_producto                                   | Comprar / Ver descuento       | comprar_[id] / descuento_[id]                          |
-| Descuento / Oferta          | plantilla_descuento_universal | {{1}} = precio_normal / {{2}} = precio_descuento          | Pagar Nequi / Pagar Daviplata | pagar_nequi_[id] / pagar_daviplata_[id]                |
-| Datos bancarios             | plantilla_cuentas_cobro       | {{1}}=nequi {{2}}=daviplata {{3}}=bancolombia {{4}}=llave {{5}}=instruccion_pago | Sin botones (cliente envia comprobante) | ya_pague (texto) |
-| Entrega final               | plantilla_entrega_final       | {{1}} = link_drive_final / {{2}} = link_canal_whatsapp    | Sin botones                   | Disparo: aprobar_[telefono] por admin                  |
-| Info finanzas               | info_finanzas_v1              | Sin variables (texto fijo)                                | Ver video / Ver PDF / Comprar / Descuento / Pagar Nequi / Pagar Daviplata | video_finanzas / pdf_finanzas / comprar_finanzas / descuento_finanzas / pagar_nequi_finanzas / pagar_daviplata_finanzas |
-| Info ingles                 | info_ingles_v1                | Sin variables (texto fijo)                                | Ver video / Ver PDF / Comprar / Descuento / Pagar Nequi / Pagar Daviplata | video_ingles / pdf_ingles / comprar_ingles / descuento_ingles / pagar_nequi_ingles / pagar_daviplata_ingles             |
-| Info biologia               | info_biologia_v1              | Sin variables (texto fijo)                                | Ver video / Ver PDF / Comprar / Descuento / Pagar Nequi / Pagar Daviplata | video_biologia / pdf_biologia / comprar_biologia / descuento_biologia / pagar_nequi_biologia / pagar_daviplata_biologia |
-
-PRECIOS FINALES (CONFIRMADOS):
-  finanzas:  precio_normal=15000  precio_descuento=10000
-  ingles:    precio_normal=20000  precio_descuento=15000
-  biologia:  precio_normal=12000  precio_descuento=10000
-
-RESUMEN DE PAYLOADS POR PRODUCTO:
-  finanzas:  video_finanzas / pdf_finanzas / comprar_finanzas / descuento_finanzas / pagar_nequi_finanzas / pagar_daviplata_finanzas
-  ingles:    video_ingles   / pdf_ingles   / comprar_ingles   / descuento_ingles   / pagar_nequi_ingles   / pagar_daviplata_ingles
-  biologia:  video_biologia / pdf_biologia / comprar_biologia / descuento_biologia / pagar_nequi_biologia / pagar_daviplata_biologia
-
-Ver TABLA_PLANTILLAS_META_UNIFICADA.md para la guia completa con textos sugeridos e instrucciones paso a paso.
-"""
+    app.run(host='0.0.0.0', port=os.getenv("PORT", 5000))
