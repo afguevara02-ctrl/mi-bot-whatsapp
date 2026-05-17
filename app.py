@@ -72,7 +72,7 @@ DEFAULT_DATOS_BOT = {
     "catalogo_plantillas_meta_custom": {},
     "ocultar_tutorial_panel": False,
     "auto_iniciar_tutorial": True,
-    "test_template_nombre": "hello_world_p",
+    "test_template_nombre": "hello_world",
     "test_template_idioma": "en_US",
     "test_template_var1": "",
     "test_template_var2": "",
@@ -1125,7 +1125,7 @@ if not clientes_vendidos and ventas_registradas:
 def enviar_peticion_whatsapp(data):
     id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT).strip()
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
-    url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+    url = f"https://graph.facebook.com/v21.0/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
@@ -1255,7 +1255,7 @@ def descargar_media_comprobante(media_id, nombre_archivo=""):
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
     headers = {"Authorization": f"Bearer {token_meta}"}
     try:
-        meta = requests.get(f"https://graph.facebook.com/v17.0/{media_id}", headers=headers, timeout=30)
+        meta = requests.get(f"https://graph.facebook.com/v21.0/{media_id}", headers=headers, timeout=30)
         if not meta.ok:
             return ""
         media_url = meta.json().get("url", "")
@@ -4017,7 +4017,7 @@ PANEL_HTML = """
         </section>
         <section class="card panel-section is-hidden" id="prueba_meta">
             <h2><i class="bi bi-send-check"></i> Prueba de Conexión de Plantillas Meta</h2>
-            <p class="helper">Envía una plantilla con variables dinámicas directamente a la API de Meta para verificar la conexión. La plantilla de referencia es: <em>"Hi &#123;&#123;1&#125;&#125;, we need to reschedule your &#123;&#123;2&#125;&#125;. Reply Reschedule to pick a new time."</em></p>
+            <p class="helper">Envía una plantilla directamente a la API de Meta para verificar la conexión. Usa <strong>hello_world</strong> (sin variables) para una prueba rápida, o ingresa el nombre de cualquier plantilla aprobada en tu cuenta. Las variables son opcionales: solo complétalas si tu plantilla las requiere.</p>
             {% if mensaje %}<div class="alerta">{{ mensaje }}</div>{% endif %}
             <form method="POST" action="{{ url_for('test_meta') }}">
                 <div class="grid">
@@ -4028,18 +4028,18 @@ PANEL_HTML = """
                     </div>
                     <div>
                         <label for="test_template_nombre">Nombre de la plantilla</label>
-                        <input id="test_template_nombre" type="text" name="test_template_nombre" value="{{ test_template_nombre or 'hello_world_p' }}" required>
+                        <input id="test_template_nombre" type="text" name="test_template_nombre" value="{{ test_template_nombre or 'hello_world' }}" required>
                     </div>
                     <div>
                         <label for="test_template_idioma">Idioma</label>
                         <input id="test_template_idioma" type="text" name="test_template_idioma" value="{{ test_template_idioma or 'en_US' }}" required>
                     </div>
                     <div>
-                        <label for="test_template_var1">Variable &#123;&#123;1&#125;&#125; (ej. nombre del cliente)</label>
+                        <label for="test_template_var1">Variable &#123;&#123;1&#125;&#125; (opcional)</label>
                         <input id="test_template_var1" type="text" name="test_template_var1" value="{{ test_template_var1 or '' }}" placeholder="ej. Juan">
                     </div>
                     <div>
-                        <label for="test_template_var2">Variable &#123;&#123;2&#125;&#125; (ej. motivo de la cita)</label>
+                        <label for="test_template_var2">Variable &#123;&#123;2&#125;&#125; (opcional)</label>
                         <input id="test_template_var2" type="text" name="test_template_var2" value="{{ test_template_var2 or '' }}" placeholder="ej. cita médica">
                     </div>
                 </div>
@@ -5023,7 +5023,7 @@ def admin_difusion():
 def test_meta():
     global datos_bot
     numero_destino = normalizar_numero_whatsapp(request.form.get("numero_destino") or "")
-    nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world_p").strip()
+    nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world").strip()
     idioma = (request.form.get("test_template_idioma") or "en_US").strip()
     var1 = (request.form.get("test_template_var1") or "").strip()
     var2 = (request.form.get("test_template_var2") or "").strip()
@@ -5037,34 +5037,32 @@ def test_meta():
 
     if not numero_destino:
         return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
-    if not var1 or not var2:
-        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes completar las variables {{1}} y {{2}} para la plantilla de prueba."))
 
     id_telefono = (datos_bot.get("id_telefono") or ID_TELEFONO_DEFAULT).strip() or ID_TELEFONO_DEFAULT
     token_meta = (datos_bot.get("token_meta") or TOKEN_META_DEFAULT).strip() or TOKEN_META_DEFAULT
-    url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+    url = f"https://graph.facebook.com/v21.0/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
     }
 
+    template_data = {
+        "name": nombre_plantilla,
+        "language": {"code": idioma},
+    }
+    params = []
+    if var1:
+        params.append({"type": "text", "text": var1})
+    if var2:
+        params.append({"type": "text", "text": var2})
+    if params:
+        template_data["components"] = [{"type": "body", "parameters": params}]
+
     payload = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
         "type": "template",
-        "template": {
-            "name": nombre_plantilla,
-            "language": {"code": idioma},
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": var1},
-                        {"type": "text", "text": var2}
-                    ]
-                }
-            ]
-        }
+        "template": template_data
     }
 
     try:
