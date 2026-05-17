@@ -1246,7 +1246,7 @@ def registrar_venta_aprobada(numero_cliente, solicitud, aprobado_desde="panel"):
             precio_base = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
             valor_venta = convertir_monto(precio_base)
         else:
-            valor_venta = 0
+            valor_venta = int(estados_clientes.get(numero_cliente, {}).get("valor_venta", 0) or 0)
 
     origen = obtener_origen_cliente(numero_cliente)
     estado_actual = estados_clientes.get(numero_cliente, {})
@@ -1461,9 +1461,9 @@ def construir_kwargs_plantilla(numero_cliente="", clave_catalogo="", producto=No
         "numero_cliente": numero_cliente,
         "catalogo_clave": clave,
         "nombre_producto": prod.get("titulo", estado.get("producto_titulo", clave or "material")),
-        "precio": str(precio_base or "0"),
-        "precio_normal": str(prod.get("precio_normal", "") or "0"),
-        "precio_descuento": str(precio_desc or "0"),
+        "precio": str(precio_base or ""),
+        "precio_normal": str(prod.get("precio_normal", "") or ""),
+        "precio_descuento": str(precio_desc or ""),
         "nequi": datos_bot.get("nequi", ""),
         "daviplata": datos_bot.get("daviplata", ""),
         "llave": datos_bot.get("llave", ""),
@@ -1602,12 +1602,15 @@ def enviar_datos_pago(numero_cliente, metodo_pago):
     estado_actual = estados_clientes.get(numero_cliente, {})
     clave = estado_actual.get("catalogo_activo", "")
     producto = catalogo_productos.get(clave, {}) if clave else {}
+    if not producto:
+        enviar_mensaje(
+            numero_cliente,
+            "Primero elige un producto del catálogo. Escribe menu para continuar."
+        )
+        return
     tipo_precio = "descuento" if estado_actual.get("oferta_descuento_activa") else "normal"
-    if producto:
-        precio_producto = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
-        valor_venta = convertir_monto(precio_producto)
-    else:
-        valor_venta = 0
+    precio_producto = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
+    valor_venta = convertir_monto(precio_producto)
     estado_nuevo = dict(estado_actual)
     estado_nuevo.update({
         "etapa": "medio_pago",
