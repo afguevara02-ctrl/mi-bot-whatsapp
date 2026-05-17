@@ -1246,7 +1246,14 @@ def registrar_venta_aprobada(numero_cliente, solicitud, aprobado_desde="panel"):
             precio_base = producto.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
             valor_venta = convertir_monto(precio_base)
         else:
-            valor_venta = int(estados_clientes.get(numero_cliente, {}).get("valor_venta", 0) or 0)
+            estado_cliente = estados_clientes.get(numero_cliente, {})
+            clave_estado = estado_cliente.get("catalogo_activo", "")
+            producto_estado = catalogo_productos.get(clave_estado, {}) if clave_estado else {}
+            if producto_estado:
+                precio_base = producto_estado.get("precio_descuento" if tipo_precio == "descuento" else "precio_normal", "0")
+                valor_venta = convertir_monto(precio_base)
+            else:
+                valor_venta = int(estado_cliente.get("valor_venta", 0) or 0)
 
     origen = obtener_origen_cliente(numero_cliente)
     estado_actual = estados_clientes.get(numero_cliente, {})
