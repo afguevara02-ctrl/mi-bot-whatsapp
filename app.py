@@ -3629,12 +3629,12 @@ PANEL_HTML = """
                                 <h4>{{ item.titulo }} ({{ item.id }})</h4>
                                 <p><strong>Plantilla requerida:</strong> <code>info_{{ item.id }}_v1</code></p>
                                 <div class="payload-grid">
-                                    <div class="payload-chip"><strong>video</strong><div class="payload-copy-row"><code>video_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('video_{{ item.id }}')">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pdf</strong><div class="payload-copy-row"><code>pdf_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pdf_{{ item.id }}')">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>comprar</strong><div class="payload-copy-row"><code>comprar_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('comprar_{{ item.id }}')">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pagar_nequi</strong><div class="payload-copy-row"><code>pagar_nequi_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pagar_nequi_{{ item.id }}')">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>pagar_daviplata</strong><div class="payload-copy-row"><code>pagar_daviplata_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pagar_daviplata_{{ item.id }}')">Copiar</button></div></div>
-                                    <div class="payload-chip"><strong>descuento</strong><div class="payload-copy-row"><code>descuento_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('descuento_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>video</strong><div class="payload-copy-row"><code>video_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload video_{{ item.id }}" onclick="copiarPayload('video_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pdf</strong><div class="payload-copy-row"><code>pdf_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pdf_{{ item.id }}" onclick="copiarPayload('pdf_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>comprar</strong><div class="payload-copy-row"><code>comprar_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload comprar_{{ item.id }}" onclick="copiarPayload('comprar_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_nequi</strong><div class="payload-copy-row"><code>pagar_nequi_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_nequi_{{ item.id }}" onclick="copiarPayload('pagar_nequi_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_daviplata</strong><div class="payload-copy-row"><code>pagar_daviplata_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload pagar_daviplata_{{ item.id }}" onclick="copiarPayload('pagar_daviplata_{{ item.id }}', this)">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>descuento</strong><div class="payload-copy-row"><code>descuento_{{ item.id }}</code><button class="btn-small" type="button" aria-label="Copiar payload descuento_{{ item.id }}" onclick="copiarPayload('descuento_{{ item.id }}', this)">Copiar</button></div></div>
                                 </div>
                             </div>
                             {% endfor %}
@@ -4068,11 +4068,24 @@ PANEL_HTML = """
             input.type = input.type === "password" ? "text" : "password";
         }
 
-        function copiarPayload(texto) {
+        function copiarPayload(texto, boton) {
             if (!texto) return;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(texto).catch(() => {});
+            const marcarBoton = (nuevoTexto) => {
+                if (!boton) return;
+                const original = boton.dataset.originalText || boton.textContent;
+                boton.dataset.originalText = original;
+                boton.textContent = nuevoTexto;
+                setTimeout(() => {
+                    boton.textContent = original;
+                }, 1200);
+            };
+            if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                marcarBoton("Error");
+                return;
             }
+            navigator.clipboard.writeText(texto)
+                .then(() => marcarBoton("Copiado"))
+                .catch(() => marcarBoton("Error"));
         }
 
         function copiarTextoPorId(id) {
