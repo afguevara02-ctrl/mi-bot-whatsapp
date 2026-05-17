@@ -3276,15 +3276,6 @@ PANEL_HTML = """
                         <span class="helper">Si cambias de app, numero o expira el token, actualizalo aqui y guarda.</span>
                     </div>
                     <div>
-                        <label for="nombre_vendedor">Nombre del vendedor</label>
-                        <input id="nombre_vendedor" type="text" name="nombre_vendedor" value="{{ nombre_vendedor }}">
-                    </div>
-                    <div>
-                        <label for="numero_admin">Tu numero WhatsApp (ej: 573001234567)</label>
-                        <input id="numero_admin" type="text" name="numero_admin" value="{{ numero_admin }}" placeholder="573001234567">
-                        <span class="helper">Aqui te llegan los avisos de comprobantes para aprobar desde WhatsApp.</span>
-                    </div>
-                    <div>
                         <label for="nequi">Nequi</label>
                         <input id="nequi" type="text" name="nequi" value="{{ nequi }}">
                     </div>
@@ -3296,72 +3287,10 @@ PANEL_HTML = """
                         <label for="llave">Llave</label>
                         <input id="llave" type="text" name="llave" value="{{ llave }}">
                     </div>
-                    <div class="full">
-                        <label for="descripcion_producto">Descripcion clara para el cliente</label>
-                        <textarea id="descripcion_producto" name="descripcion_producto">{{ descripcion_producto }}</textarea>
-                        <span class="helper">Este texto aparece al inicio de la conversacion para explicar que se vende.</span>
-                    </div>
-                    <div class="full">
-                        <label for="link_video">Link del video demo</label>
-                        <input id="link_video" type="text" name="link_video" value="{{ link_video }}">
-                        <span class="helper">URL externa del video o usa el archivo local que subas abajo</span>
-                    </div>
-                    <div class="full">
-                        <label for="archivo_video">📤 Subir video demo local</label>
-                        <input id="archivo_video" type="file" name="archivo_video" accept="video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm">
-                        <span class="helper">Formatos: MP4, MOV, M4V, WEBM. Se enviará al cliente cuando pida ver el video demo.</span>
-                        <div class="estado-media">
-                            <p><strong>Estado video:</strong> {% if estado_video.link %}Guardado{% else %}No configurado{% endif %}</p>
-                            <p><strong>Tipo:</strong> {% if estado_video.es_local %}Archivo local{% else %}Enlace externo{% endif %}</p>
-                            {% if estado_video.es_local %}
-                            <p><strong>Archivo:</strong> {{ estado_video.archivo }} {% if estado_video.existe %}({{ estado_video.tamano_kb }} KB){% endif %}</p>
-                            <p><strong>Existe:</strong> {% if estado_video.existe %}Si{% else %}No{% endif %}</p>
-                            {% endif %}
-                            {% if estado_video.url_visual %}
-                            <p><a href="{{ estado_video.url_local }}" target="_blank">Abrir recurso de video (local)</a></p>
-                            {% if estado_video.url_visual != estado_video.url_local %}
-                            <p><a href="{{ estado_video.url_visual }}" target="_blank">Abrir recurso de video (publico)</a></p>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="full">
-                        <label for="link_pdf_demo">Link del PDF demo</label>
-                        <input id="link_pdf_demo" type="text" name="link_pdf_demo" value="{{ link_pdf_demo }}">
-                        <span class="helper">URL externa del PDF o usa el archivo local que subas abajo</span>
-                    </div>
-                    <div class="full">
-                        <label for="archivo_pdf_demo">📤 Subir PDF demo local</label>
-                        <input id="archivo_pdf_demo" type="file" name="archivo_pdf_demo" accept="application/pdf,.pdf">
-                        <span class="helper">Formato: PDF. Se enviará al cliente cuando pida ver el PDF demo.</span>
-                        <div class="estado-media">
-                            <p><strong>Estado PDF:</strong> {% if estado_pdf.link %}Guardado{% else %}No configurado{% endif %}</p>
-                            <p><strong>Tipo:</strong> {% if estado_pdf.es_local %}Archivo local{% else %}Enlace externo{% endif %}</p>
-                            {% if estado_pdf.es_local %}
-                            <p><strong>Archivo:</strong> {{ estado_pdf.archivo }} {% if estado_pdf.existe %}({{ estado_pdf.tamano_kb }} KB){% endif %}</p>
-                            <p><strong>Existe:</strong> {% if estado_pdf.existe %}Si{% else %}No{% endif %}</p>
-                            {% endif %}
-                            {% if estado_pdf.url_visual %}
-                            <p><a href="{{ estado_pdf.url_local }}" target="_blank">Abrir recurso PDF (local)</a></p>
-                            {% if estado_pdf.url_visual != estado_pdf.url_local %}
-                            <p><a href="{{ estado_pdf.url_visual }}" target="_blank">Abrir recurso PDF (publico)</a></p>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="full">
-                        <label for="link_recursos_final">Link de la carpeta final de recursos</label>
-                        <input id="link_recursos_final" type="text" name="link_recursos_final" value="{{ link_recursos_final }}">
-                        <span class="helper">Este enlace se entrega automaticamente cuando el cliente envia el comprobante.</span>
-                    </div>
-                    <div class="full">
-                        <label for="link_canal_whatsapp">Link del canal privado de WhatsApp</label>
-                        <input id="link_canal_whatsapp" type="text" name="link_canal_whatsapp" value="{{ link_canal_whatsapp }}">
-                    </div>
                     <div class="full" id="tutorial-plantillas-meta">
                         <details class="meta-advanced">
                             <summary>Editor avanzado de plantillas Meta</summary>
-                            <span class="helper">Esta seccion es tecnica. Si solo quieres configurar Meta sin confundirte, usa la guia maestra de abajo. Aqui puedes editar nombre, idioma, texto y variables persistentes.</span>
+                            <span class="helper">Aquí puedes editar nombre, idioma, texto y variables persistentes de tus plantillas de Meta.</span>
                             <div class="actions" style="margin: 8px 0 12px 0;">
                                 <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}" target="_blank">Exportar catálogo JSON</a>
                             </div>
@@ -3400,84 +3329,6 @@ PANEL_HTML = """
                                 {% endfor %}
                             </div>
                         </details>
-                    </div>
-                    <div class="full estado-media" style="margin-top: 10px;">
-                        <label>Guia maestra para configurar Meta</label>
-                        <small class="helper">Esta tabla se genera automaticamente desde tu catalogo actual. Si agregas un producto nuevo y guardas, aqui veras sus nombres y payloads exactos.</small>
-                        <div style="overflow:auto; margin-top:8px;">
-                            <table class="tabla">
-                                <thead>
-                                    <tr>
-                                        <th>Fase</th>
-                                        <th>Plantilla</th>
-                                        <th>Variables</th>
-                                        <th>Botones visibles</th>
-                                        <th>Payloads exactos</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for fila in manual_meta_rows %}
-                                    <tr>
-                                        <td>{{ fila.fase }}</td>
-                                        <td>{{ fila.plantilla }}</td>
-                                        <td>{{ fila.variables }}</td>
-                                        <td>{{ fila.botones }}</td>
-                                        <td>{{ fila.payloads }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="full estado-media" style="margin-top:8px;">
-                            <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
-                        </div>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_bienvenida">Mensaje inicial</label>
-                        <textarea id="mensaje_bienvenida" name="mensaje_bienvenida">{{ mensaje_bienvenida }}</textarea>
-                        <span class="helper">Este mensaje es general. Los mensajes por producto se editan en la pestaña Catálogos.</span>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_despues_demo">Mensaje despues de la demo</label>
-                        <textarea id="mensaje_despues_demo" name="mensaje_despues_demo">{{ mensaje_despues_demo }}</textarea>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_descuento">Mensaje de descuento</label>
-                        <textarea id="mensaje_descuento" name="mensaje_descuento">{{ mensaje_descuento }}</textarea>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_descuento_ultima_oportunidad">Mensaje de descuento de ultima oportunidad (1 hora)</label>
-                        <textarea id="mensaje_descuento_ultima_oportunidad" name="mensaje_descuento_ultima_oportunidad">{{ mensaje_descuento_ultima_oportunidad }}</textarea>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_respuesta_gracias">Mensaje de respuesta cuando el cliente dice gracias o recibido</label>
-                        <textarea id="mensaje_respuesta_gracias" name="mensaje_respuesta_gracias">{{ mensaje_respuesta_gracias }}</textarea>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_cuentas_cobro">Mensaje de cuentas de cobro</label>
-                        <textarea id="mensaje_cuentas_cobro" name="mensaje_cuentas_cobro">{{ mensaje_cuentas_cobro }}</textarea>
-                        <span class="helper">Puedes usar {nequi}, {daviplata} y {llave} dentro del texto.</span>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_confirmacion_pago">Mensaje para pedir comprobante</label>
-                        <textarea id="mensaje_confirmacion_pago" name="mensaje_confirmacion_pago">{{ mensaje_confirmacion_pago }}</textarea>
-                    </div>
-                    <div class="full">
-                        <label for="mensaje_entrega_final">Mensaje de entrega final</label>
-                        <textarea id="mensaje_entrega_final" name="mensaje_entrega_final">{{ mensaje_entrega_final }}</textarea>
-                        <span class="helper">Puedes usar {link_recursos_final} y {link_canal_whatsapp} dentro del texto.</span>
-                    </div>
-                    <div class="full estado-media">
-                        <p><strong>Tutorial del panel</strong></p>
-                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin-bottom:8px;">
-                            <input type="checkbox" name="ocultar_tutorial_panel" {% if ocultar_tutorial_panel %}checked{% endif %}>
-                            No volver a mostrar botón flotante de tutorial
-                        </label>
-                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; margin:0;">
-                            <input type="checkbox" name="auto_iniciar_tutorial" {% if auto_iniciar_tutorial %}checked{% endif %}>
-                            Abrir tutorial automáticamente al entrar al panel
-                        </label>
-                        <span class="helper">Puedes reactivarlo en cualquier momento desmarcando la opción y guardando.</span>
                     </div>
                 </div>
 
@@ -3566,29 +3417,6 @@ PANEL_HTML = """
                         </div>
                     </article>
                     {% endfor %}
-                </div>
-            </div>
-            <div class="meta-guia-catalogo">
-                <label>Guía Meta visible dentro de Catálogos</label>
-                <small class="helper">Aquí tienes la referencia operativa sin entrar a Configuración. Sirve para armar tus plantillas oficiales y verificar los payloads por fase.</small>
-                <div class="meta-guia-grid">
-                    {% for fila in manual_meta_rows %}
-                    <div class="meta-guia-card">
-                        <h4>{{ fila.fase }} · {{ fila.plantilla }}</h4>
-                        <p><strong>Variables:</strong> {{ fila.variables }}</p>
-                        <p><strong>Botones visibles:</strong> {{ fila.botones }}</p>
-                        <div class="payload-chip">
-                            <strong>Payloads exactos</strong>
-                            <div class="payload-copy-row">
-                                <input id="guia_payload_{{ loop.index0 }}" type="text" readonly value="{{ fila.payloads }}">
-                                <button class="btn-small" type="button" onclick="copiarTextoPorId('guia_payload_{{ loop.index0 }}')">Copiar</button>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                <div class="full estado-media" style="margin-top:12px;">
-                    <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
                 </div>
             </div>
             <form method="POST" enctype="multipart/form-data">
@@ -3791,6 +3619,29 @@ PANEL_HTML = """
                             {% endfor %}
                         </div>
                         <span class="helper">Variables disponibles: {'{'}titulo{'}'}, {'{'}precio{'}'}, {'{'}precio_descuento{'}'}, {'{'}link_video{'}'}, {'{'}link_pdf{'}'}, {'{'}link_recursos_final{'}'}, {'{'}link_canal_whatsapp{'}'}.</span>
+                    </div>
+                    <div class="full meta-guia-catalogo">
+                        <label>Guía de plantillas Meta por producto activo</label>
+                        <small class="helper">Aparece debajo del catálogo para copiar rápidamente el nombre de plantilla requerido y cada payload exacto.</small>
+                        <div class="meta-guia-grid">
+                            {% for item in catalogo_items %}
+                            <div class="meta-guia-card">
+                                <h4>{{ item.titulo }} ({{ item.id }})</h4>
+                                <p><strong>Plantilla requerida:</strong> <code>info_{{ item.id }}_v1</code></p>
+                                <div class="payload-grid">
+                                    <div class="payload-chip"><strong>video</strong><div class="payload-copy-row"><code>video_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('video_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pdf</strong><div class="payload-copy-row"><code>pdf_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pdf_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>comprar</strong><div class="payload-copy-row"><code>comprar_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('comprar_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_nequi</strong><div class="payload-copy-row"><code>pagar_nequi_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pagar_nequi_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>pagar_daviplata</strong><div class="payload-copy-row"><code>pagar_daviplata_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('pagar_daviplata_{{ item.id }}')">Copiar</button></div></div>
+                                    <div class="payload-chip"><strong>descuento</strong><div class="payload-copy-row"><code>descuento_{{ item.id }}</code><button class="btn-small" type="button" onclick="copiarPayload('descuento_{{ item.id }}')">Copiar</button></div></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="full estado-media" style="margin-top:12px;">
+                            <a class="btn-link" href="{{ url_for('admin_exportar_plantillas_meta') }}">Descargar JSON de plantillas y payloads</a>
+                        </div>
                     </div>
                 </div>
                 <div class="actions">
@@ -4215,6 +4066,13 @@ PANEL_HTML = """
             const input = document.getElementById("token_meta");
             if (!input) return;
             input.type = input.type === "password" ? "text" : "password";
+        }
+
+        function copiarPayload(texto) {
+            if (!texto) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto).catch(() => {});
+            }
         }
 
         function copiarTextoPorId(id) {
