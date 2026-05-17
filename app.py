@@ -5429,14 +5429,12 @@ def test_meta():
     if not numero_destino:
         return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
 
-    token = datos_bot.get("token_meta", TOKEN_META_DEFAULT) or TOKEN_META_DEFAULT
-    id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT) or ID_TELEFONO_DEFAULT
+    parameters = []
+    if var1:
+        parameters.append({"type": "text", "text": var1})
+    if var2:
+        parameters.append({"type": "text", "text": var2})
 
-    url_meta = f"https://graph.facebook.com/v19.0/{id_telefono}/messages"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
     payload = {
         "messaging_product": "whatsapp",
         "to": numero_destino,
@@ -5447,21 +5445,24 @@ def test_meta():
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": var1},
-                        {"type": "text", "text": var2}
-                    ]
+                    "parameters": parameters
                 }
             ]
         }
     }
 
     try:
-        resp = requests.post(url_meta, headers=headers, json=payload, timeout=15)
+        resp = enviar_peticion_whatsapp(payload)
         if resp.status_code == 200:
-            msg = f"✅ Plantilla enviada exitosamente a {numero_destino}. Respuesta Meta: {resp.text}"
+            msg = f"✅ Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}."
         else:
-            msg = f"❌ Error Meta (HTTP {resp.status_code}): {resp.text}"
+            try:
+                error_data = resp.json()
+                error_msg = error_data.get("error", {}).get("message", "Error desconocido")
+                error_code = error_data.get("error", {}).get("code", resp.status_code)
+                msg = f"❌ Error Meta (código {error_code}): {error_msg}"
+            except Exception:
+                msg = f"❌ Error Meta (HTTP {resp.status_code}). Revisa el token y el ID de teléfono en la configuración."
     except Exception as exc:
         msg = f"❌ Error de conexión al enviar la plantilla: {exc}"
 
