@@ -4984,7 +4984,8 @@ PANEL_HTML = """
                 catalogos: document.getElementById("catalogos"),
                 reportes: document.getElementById("reportes"),
                 clientes: document.getElementById("clientes"),
-                difusion: document.getElementById("difusion")
+                difusion: document.getElementById("difusion"),
+                prueba_meta: document.getElementById("prueba_meta")
             };
 
             function activarTab(tabId) {
@@ -5413,7 +5414,7 @@ def admin_difusion():
 @app.route('/test_meta', methods=['POST'])
 def test_meta():
     global datos_bot
-    numero_destino = (request.form.get("numero_destino") or "").strip()
+    numero_destino = normalizar_numero_whatsapp(request.form.get("numero_destino") or "")
     nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world_p").strip()
     idioma = (request.form.get("test_template_idioma") or "en_US").strip()
     var1 = (request.form.get("test_template_var1") or "").strip()
@@ -5428,12 +5429,16 @@ def test_meta():
 
     if not numero_destino:
         return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
+    if not var1 or not var2:
+        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes completar las variables {{1}} y {{2}} para la plantilla de prueba."))
 
-    parameters = []
-    if var1:
-        parameters.append({"type": "text", "text": var1})
-    if var2:
-        parameters.append({"type": "text", "text": var2})
+    id_telefono = (datos_bot.get("id_telefono") or ID_TELEFONO_DEFAULT).strip() or ID_TELEFONO_DEFAULT
+    token_meta = (datos_bot.get("token_meta") or TOKEN_META_DEFAULT).strip() or TOKEN_META_DEFAULT
+    url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+    headers = {
+        "Authorization": f"Bearer {token_meta}",
+        "Content-Type": "application/json"
+    }
 
     payload = {
         "messaging_product": "whatsapp",
@@ -5445,24 +5450,30 @@ def test_meta():
             "components": [
                 {
                     "type": "body",
-                    "parameters": parameters
+                    "parameters": [
+                        {"type": "text", "text": var1},
+                        {"type": "text", "text": var2}
+                    ]
                 }
             ]
         }
     }
 
     try:
-        resp = enviar_peticion_whatsapp(payload)
-        if resp.status_code == 200:
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        status_code = resp.status_code
+        response_text = resp.text
+        if status_code == 200:
             msg = f"✅ Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}."
         else:
             try:
                 error_data = resp.json()
-                error_msg = error_data.get("error", {}).get("message", "Error desconocido")
-                error_code = error_data.get("error", {}).get("code", resp.status_code)
-                msg = f"❌ Error Meta (código {error_code}): {error_msg}"
+                error_info = error_data.get("error", {}) if isinstance(error_data, dict) else {}
+                error_code = error_info.get("code", status_code)
+                error_message = error_info.get("message") or response_text
+                msg = f"❌ Error Meta (código {error_code}, HTTP {status_code}): {error_message}"
             except Exception:
-                msg = f"❌ Error Meta (HTTP {resp.status_code}). Revisa el token y el ID de teléfono en la configuración."
+                msg = f"❌ Error Meta (HTTP {status_code}): {response_text}"
     except Exception as exc:
         msg = f"❌ Error de conexión al enviar la plantilla: {exc}"
 
