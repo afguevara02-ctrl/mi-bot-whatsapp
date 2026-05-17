@@ -22,6 +22,7 @@ app = Flask(__name__)
 # ==========================================
 TOKEN_META_DEFAULT = "EAALkHb9ZBdFwBRBq5ZAZBZA9zYpYy5vbd4Esk7AzfbqLOOehck21nSZADaXC80aBEtM39MlXGsJnTHwJZBkdJUPGOjjm6UzqIZCKLpe63d0wYbXRlfCTy5MlazSfc2Smf9vBJw6zTEberthmSv1IiZBp4ZCMOGBchWqXtEtaKN2SzBs3IPSxwYwC51mJQT3l28QZDZD"
 ID_TELEFONO_DEFAULT = "1067511759782672"
+META_API_VERSION = "v17.0"
 TOKEN_VERIFICACION = "Kiratsu.52310299*"
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "bot_config.json"
@@ -94,6 +95,10 @@ DEFAULT_DATOS_BOT = {
     "sim_cliente_custom_confirmacion": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_confirmacion"],
     "sim_cliente_custom_comprobante": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_comprobante"],
     "sim_cliente_custom_cierre": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_cierre"],
+    "meta_test_template_name": "hello_world_p",
+    "meta_test_language": "en_US",
+    "meta_test_var1": "",
+    "meta_test_var2": "",
 }
 
 # ==============================================================
@@ -1269,7 +1274,7 @@ if not clientes_vendidos and ventas_registradas:
 def enviar_peticion_whatsapp(data):
     id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT).strip()
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
-    url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+    url = f"https://graph.facebook.com/{META_API_VERSION}/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
@@ -3767,6 +3772,37 @@ PANEL_HTML = """
                     <button class="btn-small button-danger" type="submit" name="reset_simulacion_custom" value="1" onclick="return confirm('Esto restaura los textos del escenario personalizado de simulacion a valores por defecto. ¿Continuar?');">Restaurar escenario personalizado</button>
                 </div>
             </form>
+            <div class="card" id="test-meta-panel" style="margin-top: 16px;">
+                <h3 style="margin-top:0;">Prueba de conexión de plantillas Meta</h3>
+                <p class="helper">Envía una prueba con plantilla estricta de Meta y dos variables dinámicas.</p>
+                <form method="POST" action="{{ url_for('test_meta') }}">
+                    <div class="grid">
+                        <div>
+                            <label for="meta_test_numero_destino">Número de destino</label>
+                            <input id="meta_test_numero_destino" type="text" name="meta_test_numero_destino" placeholder="573001234567">
+                        </div>
+                        <div>
+                            <label for="meta_test_template_name">Nombre de la plantilla</label>
+                            <input id="meta_test_template_name" type="text" name="meta_test_template_name" value="{{ meta_test_template_name or 'hello_world_p' }}" placeholder="hello_world_p">
+                        </div>
+                        <div>
+                            <label for="meta_test_language">Idioma</label>
+                            <input id="meta_test_language" type="text" name="meta_test_language" value="{{ meta_test_language or 'en_US' }}" placeholder="en_US">
+                        </div>
+                        <div>
+                            <label for="meta_test_var1">Variable {{ '{{1}}' }}</label>
+                            <input id="meta_test_var1" type="text" name="meta_test_var1" value="{{ meta_test_var1 or '' }}" placeholder="Nombre del cliente">
+                        </div>
+                        <div class="full">
+                            <label for="meta_test_var2">Variable {{ '{{2}}' }}</label>
+                            <input id="meta_test_var2" type="text" name="meta_test_var2" value="{{ meta_test_var2 or '' }}" placeholder="Motivo de la cita">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="button" type="submit">Enviar Prueba a Meta</button>
+                    </div>
+                </form>
+            </div>
         </section>
 
         <section class="card panel-section is-hidden" id="catalogos">
@@ -5309,6 +5345,64 @@ def admin():
         estado_pdf=obtener_estado_recurso(datos_bot.get("link_pdf_demo", "")),
         **datos_bot
     )
+
+
+@app.route('/test_meta', methods=['POST'])
+def test_meta():
+    numero_destino = normalizar_numero_whatsapp(request.form.get("meta_test_numero_destino", ""))
+    template_name = (request.form.get("meta_test_template_name") or "").strip() or "hello_world_p"
+    language_code = (request.form.get("meta_test_language") or "").strip() or "en_US"
+    variable_1 = (request.form.get("meta_test_var1") or "").strip()
+    variable_2 = (request.form.get("meta_test_var2") or "").strip()
+
+    datos_bot["meta_test_template_name"] = template_name
+    datos_bot["meta_test_language"] = language_code
+    datos_bot["meta_test_var1"] = variable_1
+    datos_bot["meta_test_var2"] = variable_2
+    guardar_datos_bot()
+
+    if not numero_destino:
+        return redirect(url_for('admin', tab='configuracion', msg="Debes ingresar un número destino válido para la prueba de Meta."))
+
+    if not variable_1 or not variable_2:
+        return redirect(url_for('admin', tab='configuracion', msg="Debes completar Variable {{1}} y Variable {{2}} para enviar la prueba de Meta."))
+
+    url = f"https://graph.facebook.com/{META_API_VERSION}/{ID_TELEFONO_DEFAULT}/messages"
+    headers = {
+        "Authorization": f"Bearer {TOKEN_META_DEFAULT}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero_destino,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": variable_1},
+                        {"type": "text", "text": variable_2},
+                    ],
+                }
+            ],
+        },
+    }
+
+    try:
+        respuesta = requests.post(url, headers=headers, json=payload, timeout=30)
+        status_code = respuesta.status_code
+        response_text = respuesta.text
+    except requests.RequestException as exc:
+        return redirect(url_for('admin', tab='configuracion', msg=f"Error conectando con Meta: {exc}"))
+
+    if respuesta.ok:
+        mensaje = f"Prueba enviada correctamente a Meta (status {status_code})."
+    else:
+        mensaje = f"Meta devolvió error (status {status_code}): {response_text}"
+    return redirect(url_for('admin', tab='configuracion', msg=mensaje))
 
 
 @app.route('/admin/pendientes', methods=['GET'])
