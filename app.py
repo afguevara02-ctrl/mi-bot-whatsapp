@@ -94,6 +94,10 @@ DEFAULT_DATOS_BOT = {
     "sim_cliente_custom_confirmacion": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_confirmacion"],
     "sim_cliente_custom_comprobante": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_comprobante"],
     "sim_cliente_custom_cierre": DEFAULT_SIMULACION_CLIENTE_CUSTOM["sim_cliente_custom_cierre"],
+    "test_template_nombre": "hello_world_p",
+    "test_template_idioma": "en_US",
+    "test_template_var1": "",
+    "test_template_var2": "",
 }
 
 # ==============================================================
@@ -3402,6 +3406,7 @@ PANEL_HTML = """
                 <a href="#reportes" class="tab-link" data-tab="reportes"><i class="bi bi-bar-chart-line"></i>4. Reportes</a>
                 <a href="#clientes" class="tab-link" data-tab="clientes"><i class="bi bi-people"></i>5. Clientes</a>
                 <a href="#difusion" class="tab-link" data-tab="difusion"><i class="bi bi-broadcast"></i>6. Difusión</a>
+                <a href="#prueba_meta" class="tab-link" data-tab="prueba_meta"><i class="bi bi-send-check"></i>7. Prueba Meta</a>
             </nav>
             <div class="actions" style="margin-top: 10px;">
                 <button class="btn-small" type="button" onclick="iniciarTutorialPanel()">Reactivar guía</button>
@@ -4364,6 +4369,39 @@ PANEL_HTML = """
                 </div>
                 <div class="actions">
                     <button class="button" type="submit">Enviar difusion</button>
+                </div>
+            </form>
+        </section>
+        <section class="card panel-section is-hidden" id="prueba_meta">
+            <h2><i class="bi bi-send-check"></i> Prueba de Conexión de Plantillas Meta</h2>
+            <p class="helper">Envía una plantilla con variables dinámicas directamente a la API de Meta para verificar la conexión. La plantilla de referencia es: <em>"Hi &#123;&#123;1&#125;&#125;, we need to reschedule your &#123;&#123;2&#125;&#125;. Reply Reschedule to pick a new time."</em></p>
+            {% if mensaje %}<div class="alerta">{{ mensaje }}</div>{% endif %}
+            <form method="POST" action="{{ url_for('test_meta') }}">
+                <div class="grid">
+                    <div>
+                        <label for="test_numero_destino">Número de destino</label>
+                        <input id="test_numero_destino" type="text" name="numero_destino" placeholder="ej. 573001234567" required>
+                        <span class="helper">Número WhatsApp sin + ni espacios (código de país incluido).</span>
+                    </div>
+                    <div>
+                        <label for="test_template_nombre">Nombre de la plantilla</label>
+                        <input id="test_template_nombre" type="text" name="test_template_nombre" value="{{ test_template_nombre or 'hello_world_p' }}" required>
+                    </div>
+                    <div>
+                        <label for="test_template_idioma">Idioma</label>
+                        <input id="test_template_idioma" type="text" name="test_template_idioma" value="{{ test_template_idioma or 'en_US' }}" required>
+                    </div>
+                    <div>
+                        <label for="test_template_var1">Variable &#123;&#123;1&#125;&#125; (ej. nombre del cliente)</label>
+                        <input id="test_template_var1" type="text" name="test_template_var1" value="{{ test_template_var1 or '' }}" placeholder="ej. Juan">
+                    </div>
+                    <div>
+                        <label for="test_template_var2">Variable &#123;&#123;2&#125;&#125; (ej. motivo de la cita)</label>
+                        <input id="test_template_var2" type="text" name="test_template_var2" value="{{ test_template_var2 or '' }}" placeholder="ej. cita médica">
+                    </div>
+                </div>
+                <div class="actions" style="margin-top: 16px;">
+                    <button class="button" type="submit">Enviar Prueba a Meta</button>
                 </div>
             </form>
         </section>
@@ -5370,6 +5408,65 @@ def admin_difusion():
             msg=f"Difusion finalizada. Exitosos: {enviados_ok}. Errores: {errores}. Total: {len(numeros)}. Segmento precio={segmento_tipo_precio or 'todos'}, metodo={segmento_metodo_pago or 'todos'}, producto={segmento_producto or 'todos'}."
         )
     )
+
+
+@app.route('/test_meta', methods=['POST'])
+def test_meta():
+    global datos_bot
+    numero_destino = (request.form.get("numero_destino") or "").strip()
+    nombre_plantilla = (request.form.get("test_template_nombre") or "hello_world_p").strip()
+    idioma = (request.form.get("test_template_idioma") or "en_US").strip()
+    var1 = (request.form.get("test_template_var1") or "").strip()
+    var2 = (request.form.get("test_template_var2") or "").strip()
+
+    # Persistir los campos de configuración de la prueba
+    datos_bot["test_template_nombre"] = nombre_plantilla
+    datos_bot["test_template_idioma"] = idioma
+    datos_bot["test_template_var1"] = var1
+    datos_bot["test_template_var2"] = var2
+    guardar_datos_bot()
+
+    if not numero_destino:
+        return redirect(url_for('admin', tab='prueba_meta', msg="Error: Debes ingresar un número de destino."))
+
+    parameters = []
+    if var1:
+        parameters.append({"type": "text", "text": var1})
+    if var2:
+        parameters.append({"type": "text", "text": var2})
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero_destino,
+        "type": "template",
+        "template": {
+            "name": nombre_plantilla,
+            "language": {"code": idioma},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": parameters
+                }
+            ]
+        }
+    }
+
+    try:
+        resp = enviar_peticion_whatsapp(payload)
+        if resp.status_code == 200:
+            msg = f"✅ Plantilla '{nombre_plantilla}' enviada exitosamente a {numero_destino}."
+        else:
+            try:
+                error_data = resp.json()
+                error_msg = error_data.get("error", {}).get("message", "Error desconocido")
+                error_code = error_data.get("error", {}).get("code", resp.status_code)
+                msg = f"❌ Error Meta (código {error_code}): {error_msg}"
+            except Exception:
+                msg = f"❌ Error Meta (HTTP {resp.status_code}). Revisa el token y el ID de teléfono en la configuración."
+    except Exception as exc:
+        msg = f"❌ Error de conexión al enviar la plantilla: {exc}"
+
+    return redirect(url_for('admin', tab='prueba_meta', msg=msg))
 
 
 @app.route('/admin/reportes/excel', methods=['GET'])
