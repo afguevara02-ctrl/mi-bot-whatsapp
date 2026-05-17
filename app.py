@@ -22,6 +22,7 @@ app = Flask(__name__)
 # ==========================================
 TOKEN_META_DEFAULT = "EAALkHb9ZBdFwBRBq5ZAZBZA9zYpYy5vbd4Esk7AzfbqLOOehck21nSZADaXC80aBEtM39MlXGsJnTHwJZBkdJUPGOjjm6UzqIZCKLpe63d0wYbXRlfCTy5MlazSfc2Smf9vBJw6zTEberthmSv1IiZBp4ZCMOGBchWqXtEtaKN2SzBs3IPSxwYwC51mJQT3l28QZDZD"
 ID_TELEFONO_DEFAULT = "1067511759782672"
+META_API_VERSION = "v17.0"
 TOKEN_VERIFICACION = "Kiratsu.52310299*"
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "bot_config.json"
@@ -1273,7 +1274,7 @@ if not clientes_vendidos and ventas_registradas:
 def enviar_peticion_whatsapp(data):
     id_telefono = datos_bot.get("id_telefono", ID_TELEFONO_DEFAULT).strip()
     token_meta = datos_bot.get("token_meta", TOKEN_META_DEFAULT).strip()
-    url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+    url = f"https://graph.facebook.com/{META_API_VERSION}/{id_telefono}/messages"
     headers = {
         "Authorization": f"Bearer {token_meta}",
         "Content-Type": "application/json"
@@ -5363,7 +5364,10 @@ def test_meta():
     if not numero_destino:
         return redirect(url_for('admin', tab='configuracion', msg="Debes ingresar un número destino válido para la prueba de Meta."))
 
-    url = f"https://graph.facebook.com/v17.0/{ID_TELEFONO_DEFAULT}/messages"
+    if not variable_1 or not variable_2:
+        return redirect(url_for('admin', tab='configuracion', msg="Debes completar Variable {{1}} y Variable {{2}} para enviar la prueba de Meta."))
+
+    url = f"https://graph.facebook.com/{META_API_VERSION}/{ID_TELEFONO_DEFAULT}/messages"
     headers = {
         "Authorization": f"Bearer {TOKEN_META_DEFAULT}",
         "Content-Type": "application/json"
@@ -5394,7 +5398,7 @@ def test_meta():
     except requests.RequestException as exc:
         return redirect(url_for('admin', tab='configuracion', msg=f"Error conectando con Meta: {exc}"))
 
-    if status_code == 200:
+    if 200 <= status_code < 300:
         mensaje = f"Prueba enviada correctamente a Meta (status {status_code})."
     else:
         mensaje = f"Meta devolvió error (status {status_code}): {response_text}"
