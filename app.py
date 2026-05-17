@@ -177,63 +177,65 @@ BOTONES_RESPUESTA = {
 CATALOGO_PLANTILLAS_META = {
     # ---------------------------------------------------------------
     # plantilla_menu_general
-    # Cuerpo: "Hola! Aqui tienes nuestro catalogo:\n{{1}}"
-    # {{1}} = lista dinamica de productos (opcion. titulo (precio))
+    # {{1}} = lista dinamica de productos
     # Sin botones quick-reply obligatorios.
     # Disparo: textos hola / menu / menu_principal o numero de opcion
     # ---------------------------------------------------------------
     "plantilla_menu_general": {
         "nombre_meta": "plantilla_menu_general",
         "idioma": "es",
-        "texto_referencia": "Hola! Aqui tienes nuestro catalogo de productos disponibles:\n{{1}}\n\nEscribe el numero o nombre del producto para ver mas informacion.",
+        "texto_referencia": "Hola 👋\n\nGracias por escribir. Estos son los packs digitales disponibles:\n\n{{1}}\n\nResponde con el número o nombre del pack que quieres conocer.",
         "variables_ordenadas": ["lista_productos"]
     },
     # ---------------------------------------------------------------
     # plantilla_compra_universal
     # Se envia cuando el cliente pulsa 'Comprar' desde cualquier producto.
     # {{1}} = titulo del producto  /  {{2}} = precio_normal
-    # Botones: pagar_nequi_[id]  y  pagar_daviplata_[id]  y  menu_principal
+    # Botones DINÁMICOS (fuera de plantilla): pagar_nequi_[id], pagar_daviplata_[id], menu_principal
+    # IMPORTANTE: La plantilla de compra NO ofrece descuento.
+    # El descuento solo se activa por abandono o solicitud explícita (payload descuento_[id]).
     # ---------------------------------------------------------------
     "plantilla_compra_universal": {
         "nombre_meta": "plantilla_compra_universal",
         "idioma": "es",
-        "texto_referencia": "Excelente decision.\nProducto: {{1}}\nPrecio: ${{2}}\n\nElige tu metodo de pago para completar la compra.",
-        "variables_ordenadas": ["nombre_producto", "precio_normal"]
+        "texto_referencia": "Sin mensualidades.\n\n📲 *¿CÓMO FUNCIONA?*\n\n1️⃣ Realizas el pago por el método que prefieras\n2️⃣ Envías el comprobante por aquí\n3️⃣ Recibes TODO el material al instante por WhatsApp\n\n💳 *MEDIOS DE PAGO DISPONIBLES:*\n\n☑ Nequi\n☑ Daviplata\n☑ Llave\n\n🔥 Este material te ahorra horas de trabajo y te da recursos listos para usar.\n\nProducto: {{1}}\nPrecio normal: ${{2}}\n\nElige tu medio de pago.",
+        "variables_ordenadas": ["titulo", "precio_normal"]
     },
     # ---------------------------------------------------------------
     # plantilla_seguimiento_pdf
     # Se envia INMEDIATAMENTE despues de enviar el PDF demo.
     # {{1}} = titulo del producto
-    # Botones quick-reply: comprar_[id]
+    # Botones dinámicos: comprar_[id], video_[id], menu_principal. Sin descuento.
     # ---------------------------------------------------------------
     "plantilla_seguimiento_pdf": {
         "nombre_meta": "plantilla_seguimiento_pdf",
         "idioma": "es",
-        "texto_referencia": "Acabas de recibir el PDF demo de {{1}}.\n\nSi te convencio, puedes activar tu acceso ahora mismo o ver la oferta especial que tenemos para ti.",
-        "variables_ordenadas": ["nombre_producto"]
+        "texto_referencia": "Ya tienes el PDF demo de {{1}} ✅\n\nRevísalo con calma. Si quieres acceder al material completo, puedes continuar con la compra.",
+        "variables_ordenadas": ["titulo"]
     },
     # ---------------------------------------------------------------
     # plantilla_descuento_universal
-    # {{1}} = precio_normal  /  {{2}} = precio_descuento
-    # Botones: pagar_nequi_[id]  y  pagar_daviplata_[id]
+    # SOLO se usa por abandono o solicitud explícita. NO en comprar/pdf/video.
+    # {{1}} = titulo  /  {{2}} = precio_normal  /  {{3}} = precio_descuento
+    # Botones dinámicos: pagar_nequi_[id], pagar_daviplata_[id], menu_principal
     # ---------------------------------------------------------------
     "plantilla_descuento_universal": {
         "nombre_meta": "plantilla_descuento_universal",
         "idioma": "es",
-        "texto_referencia": "Tenemos una oferta especial por tiempo limitado.\nPrecio normal: ${{1}}\nPrecio promocional: ${{2}}\n\nElige tu metodo de pago para activar el descuento.",
-        "variables_ordenadas": ["precio_normal", "precio_descuento"]
+        "texto_referencia": "Te entiendo completamente 🙌, y es genial que estés interesado en {{1}}.\n\n✨ *¡Hoy tenemos una promoción especial!* Si ya viste que el pack completo está a ${{2}}, puedes aprovechar el *descuento a solo ${{3}}* por tiempo limitado.\n\nEs una gran oportunidad para acceder al material y empezar a usarlo de inmediato.\n\nSi decides llevarlo por ${{3}}, solo necesitas elegir tu método de pago y te compartiré los datos para activar tu acceso.",
+        "variables_ordenadas": ["titulo", "precio_normal", "precio_descuento"]
     },
     # ---------------------------------------------------------------
     # plantilla_cuentas_cobro
     # Se envia al elegir metodo de pago (pagar_nequi_[id] etc.)
-    # Variables: nequi, daviplata, llave, instruccion_pago
+    # {{1}} = titulo  /  {{2}} = metodo  /  {{3}} = valor  /  {{4}} = datos_pago
     # Solicita comprobante al final.
     # ---------------------------------------------------------------
     "plantilla_cuentas_cobro": {
         "nombre_meta": "plantilla_cuentas_cobro",
         "idioma": "es",
-        "texto_referencia": "Datos para realizar tu pago:\n\nNequi: {{1}}\nDaviplata: {{2}}\nLlave: {{3}}\n\n{{4}}\n\nUna vez realizado el pago, envia el comprobante (foto o PDF) por este mismo chat para validar y liberar tu acceso.",
-        "variables_ordenadas": ["nequi", "daviplata", "llave", "instruccion_pago"]
+        "texto_referencia": "Perfecto ✅\n\nPara adquirir {{1}}, realiza el pago por {{2}}.\n\nValor a pagar: ${{3}}\n\nDatos de pago:\n{{4}}\n\nCuando termines, envía aquí la imagen o PDF del comprobante para validar tu compra.",
+        "variables_ordenadas": ["titulo", "metodo", "valor", "datos_pago"]
     },
     # ---------------------------------------------------------------
     # plantilla_entrega_final
@@ -243,7 +245,7 @@ CATALOGO_PLANTILLAS_META = {
     "plantilla_entrega_final": {
         "nombre_meta": "plantilla_entrega_final",
         "idioma": "es",
-        "texto_referencia": "Pago verificado. Tu acceso ha sido activado.\n\nMaterial completo: {{1}}\nCanal privado de actualizaciones: {{2}}\n\nGracias por tu compra. Cualquier duda respondemos por aqui.",
+        "texto_referencia": "🔑 *¡Excelente!* 😃 Tu pago fue aprobado.\n\nAquí está el enlace con acceso a tu material:\n{{1}}\n\nSi tu compra incluye canal privado de WhatsApp, entra aquí:\n{{2}}\n\n*Gracias por tu compra. ¡Disfrútalo al máximo!* 🚀",
         "variables_ordenadas": ["link_drive_final", "link_canal_whatsapp"]
     }
 }
@@ -3594,8 +3596,11 @@ PANEL_HTML = """
         </section>
 
         <section class="card panel-section is-hidden" id="catalogos">
-            <h2>Catálogos y mensajes dinámicos por producto</h2>
-            <p class="helper">Aquí gestionas productos, precios, demos y plantillas personalizadas para cada tipo de producto.</p>
+            <h2>Catálogos y plantillas Meta por producto</h2>
+            <p class="helper">Aquí configuras productos, precios, URLs de demo y las plantillas Meta que debes crear en Business Manager. La pantalla principal prioriza las plantillas Meta; los textos de respaldo quedan en un acordeón avanzado.</p>
+            <div class="aviso-render" style="background:#fff8e1; border:1px solid #f0c040; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:0.93rem;">
+                <strong>⚠️ Estás en Render (entorno cloud):</strong> No subas archivos locales aquí. Para video y PDF demo, pega una <strong>URL pública HTTPS</strong> (GitHub Raw, Google Drive directo, CDN, etc.) para que Meta pueda descargar el archivo correctamente.
+            </div>
             <div class="estado-media" style="margin-bottom: 12px;">
                 <label>Carrete visual del catálogo y botones Meta</label>
                 <small class="helper">Este carrete simula la tarjeta que verías en WhatsApp. Cada producto muestra el mensaje, los botones visibles y el payload exacto que debe existir en Meta. Usa los botones "Copiar" para llevarlo directo a la consola de Meta.</small>
@@ -3724,7 +3729,7 @@ PANEL_HTML = """
                                         <input id="wizard_pdf" type="text" placeholder="https://... o /media/...">
                                     </div>
                                 </div>
-                                <span class="helper">Los archivos (video/PDF) los puedes subir después en la tarjeta del producto creado.</span>
+                                <span class="helper" style="color:#8a5e2a;">En Render, usa siempre URLs públicas HTTPS (GitHub Raw, CDN, Google Drive directo). No subas archivos locales.</span>
                             </div>
                             <div id="wizard-step-3" class="wizard-step is-hidden">
                                 <div class="grid">
@@ -3796,74 +3801,140 @@ PANEL_HTML = """
                                         <input type="text" name="catalog_palabras" value="{{ item.palabras_clave|join(', ') }}" placeholder="finanzas, ahorro, dinero">
                                     </div>
                                     <div>
-                                        <label>Link video demo</label>
-                                        <input type="text" name="catalog_link_video" value="{{ item.link_video }}" placeholder="https://... o /media/...">
+                                        <label>URL pública del video demo <span style="color:#c0392b; font-size:0.82rem;">(GitHub Raw, CDN o HTTPS directo)</span></label>
+                                        <input type="text" name="catalog_link_video" value="{{ item.link_video }}" placeholder="https://raw.githubusercontent.com/tu_usuario/repo/main/video_demo.mp4">
+                                        <small class="helper" style="color:#8a5e2a;">En Render no subas archivos locales aquí. Pega una URL pública HTTPS para que Meta pueda descargar el archivo.</small>
                                     </div>
                                     <div>
-                                        <label>Link PDF demo</label>
-                                        <input type="text" name="catalog_link_pdf" value="{{ item.link_pdf }}" placeholder="https://... o /media/...">
+                                        <label>URL pública del PDF demo <span style="color:#c0392b; font-size:0.82rem;">(GitHub Raw, CDN o HTTPS directo)</span></label>
+                                        <input type="text" name="catalog_link_pdf" value="{{ item.link_pdf }}" placeholder="https://raw.githubusercontent.com/tu_usuario/repo/main/demo.pdf">
+                                        <small class="helper" style="color:#8a5e2a;">En Render no subas archivos locales aquí. Pega una URL pública HTTPS para que Meta pueda descargar el archivo.</small>
                                     </div>
                                     <div>
                                         <label>Link de Drive final</label>
                                         <input type="text" name="catalog_link_entrega" value="{{ item.link_drive_final or '' }}" placeholder="https://drive.google.com/...">
                                     </div>
-                                    <div>
-                                        <label>Subir video demo</label>
-                                        <input type="file" name="catalog_archivo_video_{{ loop.index0 }}" accept="video/*,.mp4,.mov,.m4v,.webm">
-                                    </div>
-                                    <div>
-                                        <label>Subir PDF demo</label>
-                                        <input type="file" name="catalog_archivo_pdf_{{ loop.index0 }}" accept="application/pdf,.pdf">
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje de bienvenida A (primer mensaje al cliente)</label>
-                                        <small class="helper">Variante A/B: el bot alterna automaticamente por cliente para probar conversion. Usa {'{'}titulo{'}'} y {'{'}precio{'}'}.</small>
-                                        <div class="actions" style="margin-top:4px; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_a')">Restaurar default A</button>
+                                    {# Inputs de subida local ocultados: no usar en Render. El backend los soporta pero no se muestran en UI. #}
+                                    <input type="hidden" name="catalog_archivo_video_{{ loop.index0 }}" value="">
+                                    <input type="hidden" name="catalog_archivo_pdf_{{ loop.index0 }}" value="">
+
+                                    {# Sección: Plantillas Meta para este producto #}
+                                    <div class="full" style="margin-top:16px; padding:14px; background:#eaf5ff; border:1.5px solid #2196f3; border-radius:10px;">
+                                        <strong style="font-size:1rem; color:#1565c0;">&#x1F4CB; Plantillas Meta que debes crear para: {{ item.titulo }}</strong>
+                                        <p style="margin:6px 0 10px 0; font-size:0.88rem; color:#1a5276;">Estas plantillas deben crearse en <strong>Meta Business Manager &gt; WhatsApp &gt; Plantillas</strong>. Copia el texto y configura los botones con los payloads indicados.</p>
+
+                                        <div style="margin-bottom:12px; padding:10px; background:#fff; border-radius:8px; border:1px solid #90caf9;">
+                                            <p style="margin:0 0 4px 0; font-weight:700; color:#1565c0;">A) Plantilla única del producto: <code>{{ item.plantilla_info_meta or ('info_' ~ (item.id or item.key) ~ '_v1') }}</code></p>
+                                            <p style="margin:0 0 6px 0; font-size:0.84rem; color:#537080;">Categoría sugerida: <strong>MARKETING</strong> &bull; Idioma: <strong>es</strong></p>
+                                            <p style="margin:0 0 4px 0; font-size:0.84rem; color:#537080;">Texto de referencia copiable (usa este cuerpo en Meta; sin variables en el body si el texto es fijo):</p>
+                                            <textarea id="tpl_producto_texto_{{ loop.index0 }}" readonly style="min-height:110px; width:100%; font-size:0.85rem; background:#f8fbff;">{% if item.mensajes.info and item.mensajes.info != 'Producto: {titulo}. Precio: ${precio}.' %}{{ item.mensajes.info }}{% else %}Hola, te comparto información de {{ item.titulo }}.
+
+Precio: ${{ item.precio_normal }}
+Descuento disponible: ${{ item.precio_descuento }}{% endif %}</textarea>
+                                            <div class="actions" style="margin-top:6px;">
+                                                <button class="btn-small" type="button" onclick="copiarTextoPorId('tpl_producto_texto_{{ loop.index0 }}')">Copiar texto plantilla</button>
+                                            </div>
+                                            <p style="margin:8px 0 4px 0; font-size:0.84rem; color:#537080;"><strong>Botones obligatorios en Meta (Quick Reply o URL):</strong></p>
+                                            <div class="payload-grid">
+                                                <div class="payload-chip" style="background:#e8f5e9; border-color:#66bb6a;"><strong>Botón 1 – Ver video demo</strong><div class="payload-copy-row"><input id="btn1_video_{{ loop.index0 }}" type="text" readonly value="video_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('btn1_video_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip" style="background:#e8f5e9; border-color:#66bb6a;"><strong>Botón 2 – Ver PDF demo</strong><div class="payload-copy-row"><input id="btn2_pdf_{{ loop.index0 }}" type="text" readonly value="pdf_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('btn2_pdf_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip" style="background:#e8f5e9; border-color:#66bb6a;"><strong>Botón 3 – Comprar</strong><div class="payload-copy-row"><input id="btn3_comprar_{{ loop.index0 }}" type="text" readonly value="comprar_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('btn3_comprar_{{ loop.index0 }}')">Copiar</button></div></div>
+                                            </div>
                                         </div>
-                                        <textarea name="catalog_msg_bienvenida_a" data-msg-type="bienvenida_a" placeholder="Hola, te cuento sobre {titulo}...">{{ item.mensajes.bienvenida_a }}</textarea>
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje de bienvenida B (test alternativo)</label>
-                                        <div class="actions" style="margin-top:4px; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_b')">Restaurar default B</button>
+
+                                        <div style="margin-bottom:12px; padding:10px; background:#fff; border-radius:8px; border:1px solid #90caf9;">
+                                            <p style="margin:0 0 6px 0; font-weight:700; color:#1565c0;">B) Todos los payloads del producto <code>{{ item.id or item.key }}</code></p>
+                                            <div class="payload-grid">
+                                                <div class="payload-chip"><strong>video</strong><div class="payload-copy-row"><input id="all_video_{{ loop.index0 }}" type="text" readonly value="video_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_video_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip"><strong>pdf</strong><div class="payload-copy-row"><input id="all_pdf_{{ loop.index0 }}" type="text" readonly value="pdf_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_pdf_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip"><strong>comprar</strong><div class="payload-copy-row"><input id="all_comprar_{{ loop.index0 }}" type="text" readonly value="comprar_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_comprar_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip"><strong>pagar_nequi</strong><div class="payload-copy-row"><input id="all_nequi_{{ loop.index0 }}" type="text" readonly value="pagar_nequi_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_nequi_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip"><strong>pagar_daviplata</strong><div class="payload-copy-row"><input id="all_daviplata_{{ loop.index0 }}" type="text" readonly value="pagar_daviplata_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_daviplata_{{ loop.index0 }}')">Copiar</button></div></div>
+                                                <div class="payload-chip" style="border-color:#e8a85a; background:#fffbf3;"><strong>descuento <small style="color:#8a5e2a;">(solo rescate/solicitud explícita)</small></strong><div class="payload-copy-row"><input id="all_descuento_{{ loop.index0 }}" type="text" readonly value="descuento_{{ item.id or item.key }}"><button class="btn-small" type="button" onclick="copiarTextoPorId('all_descuento_{{ loop.index0 }}')">Copiar</button></div><small style="color:#8a5e2a; font-size:0.78rem;">No va en la plantilla de info. Solo se activa por abandono o solicitud explícita. La plantilla de compra NO ofrece descuento.</small></div>
+                                            </div>
                                         </div>
-                                        <textarea name="catalog_msg_bienvenida_b" data-msg-type="bienvenida_b" placeholder="Version B para probar conversion con {titulo}...">{{ item.mensajes.bienvenida_b }}</textarea>
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje info producto</label>
-                                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'info')">Restaurar default</button>
+
+                                        <div style="padding:10px; background:#fff; border-radius:8px; border:1px solid #90caf9;">
+                                            <p style="margin:0 0 6px 0; font-weight:700; color:#1565c0;">C) Guía completa del producto (para copiar)</p>
+                                            <textarea id="guia_producto_{{ loop.index0 }}" readonly style="min-height:150px; width:100%; font-size:0.82rem; background:#f8fbff;">PLANTILLA: {{ item.plantilla_info_meta or ('info_' ~ (item.id or item.key) ~ '_v1') }}
+Producto: {{ item.titulo }}
+Precio normal: ${{ item.precio_normal }} | Descuento: ${{ item.precio_descuento }}
+URL video: {{ item.link_video or '(pegar URL publica HTTPS)' }}
+URL PDF: {{ item.link_pdf or '(pegar URL publica HTTPS)' }}
+
+BOTONES (Quick Reply en Meta):
+  Boton 1 | Texto: Ver video demo | Payload: video_{{ item.id or item.key }}
+  Boton 2 | Texto: Ver PDF demo   | Payload: pdf_{{ item.id or item.key }}
+  Boton 3 | Texto: Comprar        | Payload: comprar_{{ item.id or item.key }}
+
+OTROS PAYLOADS (no van en plantilla info):
+  pagar_nequi_{{ item.id or item.key }}
+  pagar_daviplata_{{ item.id or item.key }}
+  descuento_{{ item.id or item.key }} <- solo rescate/abandono</textarea>
+                                            <div class="actions" style="margin-top:6px;">
+                                                <button class="btn-small" type="button" onclick="copiarTextoPorId('guia_producto_{{ loop.index0 }}')">Copiar guía completa</button>
+                                            </div>
                                         </div>
-                                        <textarea name="catalog_msg_info" data-msg-type="info" placeholder="Material: {titulo}...">{{ item.mensajes.info }}</textarea>
                                     </div>
-                                    <div class="full">
-                                        <label>Mensaje despues de demo</label>
-                                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'despues_demo')">Restaurar default</button>
-                                        </div>
-                                        <textarea name="catalog_msg_despues_demo" data-msg-type="despues_demo" placeholder="Viste la demo de {titulo}...">{{ item.mensajes.despues_demo }}</textarea>
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje de descuento</label>
-                                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'descuento')">Restaurar default</button>
-                                        </div>
-                                        <textarea name="catalog_msg_descuento" data-msg-type="descuento" placeholder="Hoy {titulo} tiene oferta...">{{ item.mensajes.descuento }}</textarea>
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje para pedir comprobante</label>
-                                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'confirmacion_pago')">Restaurar default</button>
-                                        </div>
-                                        <textarea name="catalog_msg_confirmacion_pago" data-msg-type="confirmacion_pago" placeholder="Envia el comprobante de {titulo}...">{{ item.mensajes.confirmacion_pago }}</textarea>
-                                    </div>
-                                    <div class="full">
-                                        <label>Mensaje de entrega final</label>
-                                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'entrega_final')">Restaurar default</button>
-                                        </div>
-                                        <textarea name="catalog_msg_entrega_final" data-msg-type="entrega_final" placeholder="Compra aprobada de {titulo}...">{{ item.mensajes.entrega_final }}</textarea>
+
+                                    {# Acordeón: textos de referencia / respaldo #}
+                                    <div class="full" style="margin-top:12px;">
+                                        <details>
+                                            <summary style="cursor:pointer; color:#537080; font-size:0.9rem;">&#x1F4AC; Textos de referencia / respaldo (bienvenida A/B y mensajes planos)</summary>
+                                            <p style="font-size:0.82rem; color:#7f8c8d; margin:8px 0;">Estos textos son de respaldo para flujos de texto plano (sin plantilla Meta activa). La pantalla principal prioriza las plantillas Meta de arriba.</p>
+                                            <div class="grid" style="margin-top:8px;">
+                                            <div class="full">
+                                                <label>Bienvenida A <span style="font-weight:400; color:#7f8c8d;">(texto de respaldo si plantilla Meta no está activa)</span></label>
+                                                <small class="helper">Variante A/B: el bot alterna automáticamente por cliente. Usa {'{'}titulo{'}'} y {'{'}precio{'}'}.</small>
+                                                <div class="actions" style="margin-top:4px; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_a')">Restaurar default A</button>
+                                                </div>
+                                                <textarea name="catalog_msg_bienvenida_a" data-msg-type="bienvenida_a" placeholder="Hola, te cuento sobre {titulo}...">{{ item.mensajes.bienvenida_a }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Bienvenida B <span style="font-weight:400; color:#7f8c8d;">(texto alternativo de respaldo)</span></label>
+                                                <div class="actions" style="margin-top:4px; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_b')">Restaurar default B</button>
+                                                </div>
+                                                <textarea name="catalog_msg_bienvenida_b" data-msg-type="bienvenida_b" placeholder="Version B para probar conversion con {titulo}...">{{ item.mensajes.bienvenida_b }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Texto info producto <span style="font-weight:400; color:#7f8c8d;">(respaldo)</span></label>
+                                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'info')">Restaurar default</button>
+                                                </div>
+                                                <textarea name="catalog_msg_info" data-msg-type="info" placeholder="Material: {titulo}...">{{ item.mensajes.info }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Texto después de demo <span style="font-weight:400; color:#7f8c8d;">(respaldo)</span></label>
+                                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'despues_demo')">Restaurar default</button>
+                                                </div>
+                                                <textarea name="catalog_msg_despues_demo" data-msg-type="despues_demo" placeholder="Viste la demo de {titulo}...">{{ item.mensajes.despues_demo }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Texto de descuento <span style="font-weight:400; color:#7f8c8d;">(respaldo – solo abandono/solicitud explícita)</span></label>
+                                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'descuento')">Restaurar default</button>
+                                                </div>
+                                                <textarea name="catalog_msg_descuento" data-msg-type="descuento" placeholder="Hoy {titulo} tiene oferta...">{{ item.mensajes.descuento }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Texto confirmación pago <span style="font-weight:400; color:#7f8c8d;">(respaldo)</span></label>
+                                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'confirmacion_pago')">Restaurar default</button>
+                                                </div>
+                                                <textarea name="catalog_msg_confirmacion_pago" data-msg-type="confirmacion_pago" placeholder="Envia el comprobante de {titulo}...">{{ item.mensajes.confirmacion_pago }}</textarea>
+                                            </div>
+                                            <div class="full">
+                                                <label>Texto entrega final <span style="font-weight:400; color:#7f8c8d;">(respaldo)</span></label>
+                                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'entrega_final')">Restaurar default</button>
+                                                </div>
+                                                <textarea name="catalog_msg_entrega_final" data-msg-type="entrega_final" placeholder="Compra aprobada de {titulo}...">{{ item.mensajes.entrega_final }}</textarea>
+                                            </div>
+                                            </div>
+                                        </details>
                                     </div>
                                     <div class="full preview catalog-preview"></div>
                                 </div>
@@ -3901,6 +3972,36 @@ PANEL_HTML = """
                     <button class="button" type="submit">Guardar catálogos</button>
                 </div>
             </form>
+
+            {# Sección global: Plantillas universales en Meta #}
+            <div style="margin-top:24px; padding:16px; background:#f0f9ff; border:2px solid #1976d2; border-radius:12px;">
+                <h3 style="margin-top:0; color:#1565c0;">&#x1F310; Plantillas universales en Meta</h3>
+                <p style="font-size:0.9rem; color:#1a5276; margin-bottom:14px;">Estas plantillas se usan para todos los productos. Créalas en Meta Business Manager con los cuerpos indicados. <strong>La plantilla de compra NO ofrece descuento; el descuento solo se activa por abandono o solicitud explícita.</strong></p>
+
+                {% set tpls_universales = [
+                    {'nombre': 'plantilla_menu_general', 'categoria': 'UTILITY', 'vars': '{{1}} = lista dinámica de productos', 'botones': 'Sin botones obligatorios', 'nota': 'Disparo: hola / menú / menu_principal o número de opción'},
+                    {'nombre': 'plantilla_compra_universal', 'categoria': 'MARKETING', 'vars': '{{1}} = titulo, {{2}} = precio_normal', 'botones': 'Dinámicos: pagar_nequi_[id], pagar_daviplata_[id], menu_principal', 'nota': 'NO incluir botón de descuento. Descuento solo por abandono/solicitud explícita.'},
+                    {'nombre': 'plantilla_descuento_universal', 'categoria': 'MARKETING', 'vars': '{{1}} = titulo, {{2}} = precio_normal, {{3}} = precio_descuento', 'botones': 'Dinámicos: pagar_nequi_[id], pagar_daviplata_[id], menu_principal', 'nota': 'Solo para abandono o solicitud explícita. NO usar en flujo normal de compra.'},
+                    {'nombre': 'plantilla_cuentas_cobro', 'categoria': 'UTILITY', 'vars': '{{1}} = titulo, {{2}} = metodo, {{3}} = valor, {{4}} = datos_pago', 'botones': 'Sin botones obligatorios. Flujo posterior: ya_pague.', 'nota': ''},
+                    {'nombre': 'plantilla_entrega_final', 'categoria': 'UTILITY', 'vars': '{{1}} = link_drive_final, {{2}} = link_canal_whatsapp', 'botones': 'Sin botones obligatorios', 'nota': 'Se dispara tras aprobación admin.'},
+                    {'nombre': 'plantilla_seguimiento_pdf', 'categoria': 'MARKETING', 'vars': '{{1}} = titulo', 'botones': 'Dinámicos: comprar_[id], video_[id], menu_principal', 'nota': 'Sin botón de descuento. Se envía inmediatamente tras enviar el PDF demo.'}
+                ] %}
+
+                {% for tpl in tpls_universales %}
+                <div style="margin-bottom:14px; padding:12px; background:#fff; border-radius:8px; border:1px solid #90caf9;">
+                    <p style="margin:0 0 6px 0; font-weight:700; color:#1565c0;">{{ tpl.nombre }}</p>
+                    <p style="margin:0 0 4px 0; font-size:0.84rem;"><strong>Categoría:</strong> {{ tpl.categoria }} &bull; <strong>Idioma:</strong> es</p>
+                    <p style="margin:0 0 4px 0; font-size:0.84rem;"><strong>Variables:</strong> {{ tpl.vars }}</p>
+                    <p style="margin:0 0 4px 0; font-size:0.84rem;"><strong>Botones:</strong> {{ tpl.botones }}</p>
+                    {% if tpl.nota %}<p style="margin:0 0 6px 0; font-size:0.82rem; color:#8a5e2a;"><strong>Nota:</strong> {{ tpl.nota }}</p>{% endif %}
+                    <div style="margin-top:8px;">
+                        <label style="font-size:0.83rem; color:#537080;">Texto exacto (copiar y pegar en Meta):</label>
+                        <textarea id="tpl_universal_{{ tpl.nombre }}" readonly style="min-height:80px; width:100%; font-size:0.83rem; background:#f8fbff; margin-top:4px;">{% if tpl.nombre in catalogo_plantillas_meta %}{{ catalogo_plantillas_meta[tpl.nombre].texto_referencia }}{% else %}(No disponible){% endif %}</textarea>
+                        <button class="btn-small" type="button" style="margin-top:4px;" onclick="copiarTextoPorId('tpl_universal_{{ tpl.nombre }}')">Copiar</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </section>
 
         <section class="card panel-section is-hidden" id="pendientes">
@@ -4389,13 +4490,14 @@ PANEL_HTML = """
             const keyInput = clon.querySelector('input[name="catalog_key"]');
             if (keyInput && keyInput.value) keyInput.value = `${keyInput.value}_copia`;
 
-            clon.querySelectorAll('input[type="file"]').forEach((fileInput) => {
-                if (fileInput.name.startsWith("catalog_archivo_video_")) {
-                    fileInput.name = `catalog_archivo_video_${idx}`;
-                } else if (fileInput.name.startsWith("catalog_archivo_pdf_")) {
-                    fileInput.name = `catalog_archivo_pdf_${idx}`;
+            // Renombrar inputs ocultos de archivo (no se muestran en UI; el backend los soporta por compatibilidad)
+            clon.querySelectorAll('input[type="hidden"]').forEach((hiddenInput) => {
+                if (hiddenInput.name.startsWith("catalog_archivo_video_")) {
+                    hiddenInput.name = `catalog_archivo_video_${idx}`;
+                } else if (hiddenInput.name.startsWith("catalog_archivo_pdf_")) {
+                    hiddenInput.name = `catalog_archivo_pdf_${idx}`;
                 }
-                fileInput.value = "";
+                hiddenInput.value = "";
             });
 
             contenedor.insertBefore(clon, card.nextSibling);
@@ -4453,70 +4555,74 @@ PANEL_HTML = """
                         <input type="text" name="catalog_palabras" value="" placeholder="matematicas, algebra, ecuaciones">
                     </div>
                     <div>
-                        <label>Link video demo</label>
-                        <input type="text" name="catalog_link_video" value="" placeholder="https://... o /media/...">
+                        <label>URL pública del video demo <span style="color:#c0392b; font-size:0.82rem;">(GitHub Raw, CDN o HTTPS directo)</span></label>
+                        <input type="text" name="catalog_link_video" value="" placeholder="https://raw.githubusercontent.com/tu_usuario/repo/main/video_demo.mp4">
+                        <small style="color:#8a5e2a; font-size:0.8rem;">En Render no subas archivos locales aquí. Pega URL pública HTTPS.</small>
                     </div>
                     <div>
-                        <label>Link PDF demo</label>
-                        <input type="text" name="catalog_link_pdf" value="" placeholder="https://... o /media/...">
+                        <label>URL pública del PDF demo <span style="color:#c0392b; font-size:0.82rem;">(GitHub Raw, CDN o HTTPS directo)</span></label>
+                        <input type="text" name="catalog_link_pdf" value="" placeholder="https://raw.githubusercontent.com/tu_usuario/repo/main/demo.pdf">
+                        <small style="color:#8a5e2a; font-size:0.8rem;">En Render no subas archivos locales aquí. Pega URL pública HTTPS.</small>
                     </div>
-                    <div>
-                        <label>Subir video demo</label>
-                        <input type="file" name="catalog_archivo_video_${idx}" accept="video/*,.mp4,.mov,.m4v,.webm">
+                    <input type="hidden" name="catalog_archivo_video_${idx}" value="">
+                    <input type="hidden" name="catalog_archivo_pdf_${idx}" value="">
+                    <div class="full" style="margin-top:10px; padding:10px; background:#eaf5ff; border:1px solid #90caf9; border-radius:8px;">
+                        <strong style="font-size:0.9rem; color:#1565c0;">Plantillas Meta (configura en Meta Business Manager)</strong>
+                        <p style="font-size:0.82rem; color:#537080; margin:4px 0 8px 0;">Botones obligatorios: video_[id], pdf_[id], comprar_[id]. Descuento solo por abandono.</p>
                     </div>
-                    <div>
-                        <label>Subir PDF demo</label>
-                        <input type="file" name="catalog_archivo_pdf_${idx}" accept="application/pdf,.pdf">
-                    </div>
-                    <div class="full">
-                        <label>Mensaje de bienvenida A (primer mensaje al cliente)</label>
-                        <small class="helper">Variante A/B: el bot alterna automaticamente por cliente para probar conversion. Usa {titulo} y {precio}.</small>
-                        <div class="actions" style="margin-top:4px; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_a')">Restaurar default A</button>
-                        </div>
-                        <textarea name="catalog_msg_bienvenida_a" data-msg-type="bienvenida_a" placeholder="Hola, te cuento sobre {titulo}...">${MENSAJES_DEFAULT.bienvenida_a || MENSAJES_DEFAULT.bienvenida || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje de bienvenida B (test alternativo)</label>
-                        <div class="actions" style="margin-top:4px; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_b')">Restaurar default B</button>
-                        </div>
-                        <textarea name="catalog_msg_bienvenida_b" data-msg-type="bienvenida_b" placeholder="Version B para probar conversion con {titulo}...">${MENSAJES_DEFAULT.bienvenida_b || MENSAJES_DEFAULT.bienvenida || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje info producto</label>
-                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'info')">Restaurar default</button>
-                        </div>
-                        <textarea name="catalog_msg_info" data-msg-type="info" placeholder="Material: {titulo}...">${MENSAJES_DEFAULT.info || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje despues de demo</label>
-                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'despues_demo')">Restaurar default</button>
-                        </div>
-                        <textarea name="catalog_msg_despues_demo" data-msg-type="despues_demo" placeholder="Viste la demo de {titulo}...">${MENSAJES_DEFAULT.despues_demo || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje de descuento</label>
-                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'descuento')">Restaurar default</button>
-                        </div>
-                        <textarea name="catalog_msg_descuento" data-msg-type="descuento" placeholder="Hoy {titulo} tiene oferta...">${MENSAJES_DEFAULT.descuento || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje para pedir comprobante</label>
-                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'confirmacion_pago')">Restaurar default</button>
-                        </div>
-                        <textarea name="catalog_msg_confirmacion_pago" data-msg-type="confirmacion_pago" placeholder="Envia el comprobante de {titulo}...">${MENSAJES_DEFAULT.confirmacion_pago || ""}</textarea>
-                    </div>
-                    <div class="full">
-                        <label>Mensaje de entrega final</label>
-                        <div class="actions" style="margin-top:0; margin-bottom:6px;">
-                            <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'entrega_final')">Restaurar default</button>
-                        </div>
-                        <textarea name="catalog_msg_entrega_final" data-msg-type="entrega_final" placeholder="Compra aprobada de {titulo}...">${MENSAJES_DEFAULT.entrega_final || ""}</textarea>
+                    <div class="full" style="margin-top:10px;">
+                        <details>
+                            <summary style="cursor:pointer; color:#537080; font-size:0.9rem;">Textos de referencia / respaldo (bienvenida A/B y mensajes planos)</summary>
+                            <div class="full">
+                                <label>Bienvenida A (respaldo)</label>
+                                <div class="actions" style="margin-top:4px; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_a')">Restaurar default A</button>
+                                </div>
+                                <textarea name="catalog_msg_bienvenida_a" data-msg-type="bienvenida_a" placeholder="Hola, te cuento sobre {titulo}...">${MENSAJES_DEFAULT.bienvenida_a || MENSAJES_DEFAULT.bienvenida || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Bienvenida B (respaldo)</label>
+                                <div class="actions" style="margin-top:4px; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'bienvenida_b')">Restaurar default B</button>
+                                </div>
+                                <textarea name="catalog_msg_bienvenida_b" data-msg-type="bienvenida_b" placeholder="Version B para probar conversion con {titulo}...">${MENSAJES_DEFAULT.bienvenida_b || MENSAJES_DEFAULT.bienvenida || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Texto info (respaldo)</label>
+                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'info')">Restaurar default</button>
+                                </div>
+                                <textarea name="catalog_msg_info" data-msg-type="info" placeholder="Material: {titulo}...">${MENSAJES_DEFAULT.info || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Texto después de demo (respaldo)</label>
+                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'despues_demo')">Restaurar default</button>
+                                </div>
+                                <textarea name="catalog_msg_despues_demo" data-msg-type="despues_demo" placeholder="Viste la demo de {titulo}...">${MENSAJES_DEFAULT.despues_demo || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Texto descuento (respaldo – solo abandono)</label>
+                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'descuento')">Restaurar default</button>
+                                </div>
+                                <textarea name="catalog_msg_descuento" data-msg-type="descuento" placeholder="Hoy {titulo} tiene oferta...">${MENSAJES_DEFAULT.descuento || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Texto confirmación pago (respaldo)</label>
+                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'confirmacion_pago')">Restaurar default</button>
+                                </div>
+                                <textarea name="catalog_msg_confirmacion_pago" data-msg-type="confirmacion_pago" placeholder="Envia el comprobante de {titulo}...">${MENSAJES_DEFAULT.confirmacion_pago || ""}</textarea>
+                            </div>
+                            <div class="full">
+                                <label>Texto entrega final (respaldo)</label>
+                                <div class="actions" style="margin-top:0; margin-bottom:6px;">
+                                    <button class="btn-small" type="button" onclick="restaurarMensajeProducto(this, 'entrega_final')">Restaurar default</button>
+                                </div>
+                                <textarea name="catalog_msg_entrega_final" data-msg-type="entrega_final" placeholder="Compra aprobada de {titulo}...">${MENSAJES_DEFAULT.entrega_final || ""}</textarea>
+                            </div>
+                        </details>
                     </div>
                     <div class="full preview catalog-preview"></div>
                 </div>
