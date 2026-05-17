@@ -10,6 +10,7 @@ import re
 import requests
 import time
 import os
+import unicodedata
 
 app = Flask(__name__)
 
@@ -650,23 +651,61 @@ def normalizar_clave_catalogo(texto):
 
 
 def buscar_producto_catalogo_por_texto(texto):
-    t = normalizar_texto(texto)
+    def _limpiar(valor):
+        s = str(valor or "").lower().strip()
+        s = unicodedata.normalize("NFKD", s)
+        s = "".join(ch for ch in s if not unicodedata.combining(ch))
+        s = re.sub(r"[^a-z0-9\s]", " ", s)
+        s = re.sub(r"\s+", " ", s)
+        return s.strip()
+
+    t = _limpiar(texto)
     if not t:
         return None, None
 
-    for clave, producto in catalogo_productos.items():
-        opcion = normalizar_texto(producto.get("opcion", ""))
+    tokens_texto = set(t.split())
+    palabras_ruido = {
+        "quiero", "info", "informacion", "sobre", "del", "de", "el", "la", "los", "las",
+        "un", "una", "pack", "curso", "producto", "por", "para", "me", "das", "ver"
+    }
+    mejor_clave = None
+    mejor_producto = None
+    mejor_puntaje = 0
+
+    for clave, producto in (catalogo_productos or {}).items():
+        opcion = _limpiar(producto.get("opcion", ""))
         if opcion and t == opcion:
             return clave, producto
-        producto_id = normalizar_texto(producto.get("id", clave))
-        if producto_id and (producto_id == t or f"ver_{producto_id}" == t or f"info_{producto_id}" == t):
-            return clave, producto
-        clave_norm = normalizar_texto(clave)
-        if clave_norm in t:
-            return clave, producto
-        for palabra in producto.get("palabras_clave", []):
-            if normalizar_texto(str(palabra)) in t:
+
+        producto_id = _limpiar(producto.get("id", clave))
+        clave_norm = _limpiar(clave.replace("_", " "))
+        titulo_norm = _limpiar(producto.get("titulo", clave))
+        palabras_clave = [_limpiar(p) for p in (producto.get("palabras_clave", []) or []) if _limpiar(p)]
+
+        # Coincidencias fuertes por frase completa (funciona para textos largos de anuncios).
+        for frase in [producto_id, clave_norm, titulo_norm, *palabras_clave]:
+            if not frase or frase in palabras_ruido:
+                continue
+            if t == frase or frase in t:
                 return clave, producto
+
+        # Coincidencia por tokens relevantes.
+        tokens_producto = set()
+        for valor in [clave_norm, producto_id, *palabras_clave]:
+            for tk in valor.split():
+                if len(tk) >= 4 and tk not in palabras_ruido:
+                    tokens_producto.add(tk)
+
+        if not tokens_producto:
+            continue
+        puntaje = len(tokens_texto & tokens_producto)
+        if puntaje > mejor_puntaje:
+            mejor_puntaje = puntaje
+            mejor_clave = clave
+            mejor_producto = producto
+
+    if mejor_puntaje >= 1:
+        return mejor_clave, mejor_producto
     return None, None
 
 
@@ -2183,34 +2222,48 @@ def webhook():
                 catalogo_activo=clave_producto,
                 producto_titulo=producto.get("titulo", clave_producto)
             )
-            # La plantilla info tiene botones: video_[id], pdf_[id], comprar_[id]
-            enviar_mensaje_plantilla(numero_cliente, f"info_{clave_producto}")
+            plantilla_info = str(producto.get("plantilla_info_meta", "")).strip()
+            if plantilla_info:
+                enviar_mensaje_plantilla(numero_cliente, plantilla_info)
+            else:
+                enviar_mensaje(
+                    numero_cliente,
+                    "Este producto no tiene plantilla de informacion configurada. Escribe menu para ver otras opciones."
+                )
+
+        def _limpiar_intencion_texto(valor):
+            texto = str(valor or "").lower().strip()
+            texto = unicodedata.normalize("NFKD", texto)
+            texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+            texto = re.sub(r"[^a-z0-9\s]", " ", texto)
+            texto = re.sub(r"\s+", " ", texto)
+            return texto.strip()
 
         # ------------------------------------------------------------------
         # FLUJO PRINCIPAL
         # ------------------------------------------------------------------
+        texto_limpio_intencion = _limpiar_intencion_texto(texto_recibido)
+        clave_detectada_texto, producto_detectado_texto = (None, None)
+        if tipo_mensaje == "text":
+            clave_detectada_texto, producto_detectado_texto = buscar_producto_catalogo_por_texto(texto_recibido)
 
         # 1. MENU / HOLA
-        if texto_recibido in {"hola", "menu", "menu_principal", "info"} or accion == "menu":
+        if (
+            accion == "menu"
+            or texto_recibido in {"hola", "menu_principal"}
+            or (
+                tipo_mensaje == "text"
+                and texto_limpio_intencion in {"menu", "info"}
+                and not producto_detectado_texto
+            )
+        ):
             datos_bot["visitas_info"] = int(datos_bot.get("visitas_info", 0)) + 1
             guardar_datos_bot()
             _enviar_menu_general()
 
-        # 2. INFO PRODUCTO por texto o numero de opcion
-        elif texto_recibido.startswith("info ") or texto_recibido.isdigit():
-            consulta = (
-                texto_recibido[5:].strip()
-                if texto_recibido.startswith("info ")
-                else texto_recibido
-            )
-            clave, producto = buscar_producto_catalogo_por_texto(consulta)
-            if not producto:
-                enviar_mensaje(
-                    numero_cliente,
-                    "No encontre ese producto. Escribe menu para ver las opciones disponibles."
-                )
-            else:
-                _enviar_info_producto(clave, producto)
+        # 2. INFO PRODUCTO por texto (deteccion inteligente)
+        elif tipo_mensaje == "text" and producto_detectado_texto:
+            _enviar_info_producto(clave_detectada_texto, producto_detectado_texto)
 
         # 3. VER VIDEO
         elif accion == "video":
@@ -2235,17 +2288,24 @@ def webhook():
                         numero_cliente, link_video,
                         f"Video demo: {producto.get('titulo', clave)}"
                     )
-                    # Sugerencia post-video (sin sleep; Timer opcional)
-                    cfg = obtener_config_flujos()
-                    if cfg.get("send_pdf_after_video", True):
-                        programar_seguimiento_video(numero_cliente)
+                    producto_id = producto.get("id", clave)
+                    enviar_mensaje_botones(
+                        numero_cliente,
+                        "¿Qué deseas hacer ahora?",
+                        [
+                            (f"pdf_{producto_id}", "Ver PDF"),
+                            (f"comprar_{producto_id}", "Comprar"),
+                            ("menu_principal", "Menú")
+                        ],
+                        pie="Siguiente paso"
+                    )
                 else:
                     enviar_mensaje(
                         numero_cliente,
                         "Este producto no tiene video configurado todavia. Escribe menu para ver otras opciones."
                     )
 
-        # 4. VER PDF  ->  envia PDF y LUEGO plantilla_seguimiento_pdf de forma inmediata
+        # 4. VER PDF  -> envia PDF y botones permitidos
         elif accion == "pdf":
             clave, producto = resolver_producto_por_id_o_estado(numero_cliente, objetivo_payload)
             if not producto:
@@ -2265,27 +2325,17 @@ def webhook():
                 )
                 producto_id = producto.get("id", clave)
                 if link_pdf:
-                    # Enviar el PDF
                     enviar_documento(
                         numero_cliente, link_pdf,
                         f"Demo_{producto_id}.pdf"
                     )
-                    # Enviar plantilla_seguimiento_pdf INMEDIATAMENTE despues del PDF
-                    kwargs_seguimiento = construir_kwargs_plantilla(
-                        numero_cliente, clave, producto
-                    )
-                    enviar_mensaje_plantilla(
-                        numero_cliente, "plantilla_seguimiento_pdf",
-                        **kwargs_seguimiento
-                    )
-                    # Botones de accion post-PDF
                     enviar_mensaje_botones(
                         numero_cliente,
-                        "Cuando lo hayas revisado, activa tu acceso:",
+                        "¿Qué deseas hacer ahora?",
                         [
+                            (f"video_{producto_id}", "Ver Video"),
                             (f"comprar_{producto_id}", "Comprar"),
-                            (f"descuento_{producto_id}", "Descuento"),
-                            (f"video_{producto_id}", "Ver video")
+                            ("menu_principal", "Menú")
                         ],
                         pie="Siguiente paso"
                     )
@@ -2295,7 +2345,7 @@ def webhook():
                         "Este producto aun no tiene PDF demo configurado. Escribe menu para ver otras opciones."
                     )
 
-        # 5. COMPRAR -> ofrece descuento o metodo de pago directo
+        # 5. COMPRAR -> plantilla universal + metodos de pago
         elif accion == "comprar":
             clave, producto = resolver_producto_por_id_o_estado(numero_cliente, objetivo_payload)
             if not producto:
@@ -2314,13 +2364,17 @@ def webhook():
                     valor_venta=convertir_monto(producto.get("precio_normal", "0"))
                 )
                 producto_id = producto.get("id", clave)
+                kwargs_tpl = construir_kwargs_plantilla(numero_cliente, clave, producto)
+                enviar_mensaje_plantilla(
+                    numero_cliente, "plantilla_compra_universal", **kwargs_tpl
+                )
                 enviar_mensaje_botones(
                     numero_cliente,
-                    "Excelente eleccion. Puedes ver la oferta especial o elegir tu metodo de pago directamente.",
+                    "Selecciona tu metodo de pago para activar tu compra.",
                     [
-                        (f"descuento_{producto_id}", "Descuento"),
                         (f"pagar_nequi_{producto_id}", "Pagar Nequi"),
-                        (f"pagar_daviplata_{producto_id}", "Pagar Daviplata")
+                        (f"pagar_daviplata_{producto_id}", "Pagar Daviplata"),
+                        ("menu_principal", "Menú")
                     ],
                     pie="Activa tu compra"
                 )
@@ -2476,7 +2530,45 @@ def webhook():
                     f"No hay solicitud pendiente para {numero_cliente_objetivo}."
                 )
 
-        # 12. AGRADECIMIENTOS
+        # 12. DESCUENTO OCULTO por texto exacto
+        elif (
+            tipo_mensaje == "text"
+            and texto_limpio_intencion in {
+                "descuento", "promo", "promocion", "oferta", "rebaja",
+                "precio especial", "caro", "me haces descuento"
+            }
+        ):
+            estado_actual = estados_clientes.get(numero_cliente, {})
+            clave_estado = estado_actual.get("catalogo_activo", "")
+            producto_estado = catalogo_productos.get(clave_estado, {}) if clave_estado else {}
+            if producto_estado:
+                actualizar_etapa_cliente(
+                    numero_cliente, "interesado",
+                    catalogo_activo=clave_estado,
+                    producto_titulo=producto_estado.get("titulo", clave_estado),
+                    hizo_click_comprar=True,
+                    oferta_descuento_activa=True,
+                    tipo_precio="descuento",
+                    valor_venta=convertir_monto(producto_estado.get("precio_descuento", "0"))
+                )
+                kwargs_tpl = construir_kwargs_plantilla(numero_cliente, clave_estado, producto_estado)
+                enviar_mensaje_plantilla(
+                    numero_cliente, "plantilla_descuento_universal", **kwargs_tpl
+                )
+                producto_id = producto_estado.get("id", clave_estado)
+                enviar_mensaje_botones(
+                    numero_cliente,
+                    "Elige tu metodo de pago para activar el precio promocional.",
+                    [
+                        (f"pagar_nequi_{producto_id}", "Pagar Nequi"),
+                        (f"pagar_daviplata_{producto_id}", "Pagar Daviplata")
+                    ],
+                    pie="Pago con descuento"
+                )
+            else:
+                _enviar_menu_general()
+
+        # 13. AGRADECIMIENTOS
         elif contiene_intencion(
             texto_recibido,
             {"gracias", "recibido", "recibida", "confirmo recibido", "confirmado"}
@@ -2489,7 +2581,7 @@ def webhook():
                 )
             )
 
-        # 13. FALLBACK -> buscar por texto libre en catalogo o devolver menu
+        # 14. FALLBACK -> buscar por texto libre en catalogo o devolver menu
         else:
             clave, producto = buscar_producto_catalogo_por_texto(texto_recibido)
             if producto:
