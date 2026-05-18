@@ -2205,42 +2205,82 @@ def webhook():
                 mensaje_info.get("text", {}).get("body", "")
             )
 
-        elif tipo_mensaje == "interactive":
-            # Botones quick-reply o lista de Meta enviados por el bot
-            interactive = mensaje_info.get("interactive", {}) or {}
-            button_reply = interactive.get("button_reply", {}) or {}
-            list_reply = interactive.get("list_reply", {}) or {}
-            # Preferir id (payload exacto) sobre title (texto visible)
-            raw = (
-                button_reply.get("id")
-                or list_reply.get("id")
-                or button_reply.get("title")
-                or list_reply.get("title")
-                or ""
-            )
-            texto_recibido = normalizar_texto(raw)
+        elif tipo_mensaje in ["interactive", "button"]:
+            # 1. CAPTURAR EL TEXTO DEL BOTÓN (Sea plantilla o interactivo)
+            accion = ""
+            if tipo_mensaje == "interactive":
+                interactivo = mensaje_info.get("interactive", {}) or {}
+                if interactivo.get("type") == "button_reply":
+                    accion = (interactivo.get("button_reply", {}) or {}).get("title", "").lower()
+                elif interactivo.get("type") == "list_reply":
+                    accion = (interactivo.get("list_reply", {}) or {}).get("title", "").lower()
+            elif tipo_mensaje == "button":
+                accion = (mensaje_info.get("button", {}) or {}).get("text", "").lower()
 
-        elif tipo_mensaje == "button":
-            # Respuesta a plantilla con botones (type=button en la notificacion)
-            button_data = mensaje_info.get("button", {})
-            if not isinstance(button_data, dict):
-                button_data = {}
-            payload_raw = normalizar_texto(button_data.get("payload", ""))
-            texto_boton = normalizar_texto(button_data.get("text", ""))
-            candidato = payload_raw or texto_boton
-            # Validar lista blanca de prefijos y payloads especiales
-            if candidato:
-                es_valido = (
-                    candidato in PAYLOADS_ESPECIALES
-                    or any(candidato.startswith(p) for p in PREFIJOS_PERMITIDOS)
+            # 2. RECUPERAR EL PRODUCTO DE LA MEMORIA DEL BOT
+            estado_actual = estados_clientes.setdefault(numero_cliente, {})
+            id_prod = estado_actual.get("catalogo_activo")
+
+            # Si presionan pagar, no necesitamos catalogo activo, solo procesar el pago
+            if "nequi" in accion or "daviplata" in accion:
+                metodo = "nequi" if "nequi" in accion else "daviplata"
+                estados_clientes[numero_cliente]["metodo_pago"] = metodo
+                estados_clientes[numero_cliente]["esperando_comprobante"] = True
+                guardar_estado_runtime()
+                enviar_datos_pago(numero_cliente, metodo)
+                return "EVENT_RECEIVED", 200
+
+            # Si no hay producto activo y no están pagando, enviamos al menú
+            if not id_prod:
+                enviar_mensaje_plantilla(numero_cliente, "plantilla_menu_general")
+                return "EVENT_RECEIVED", 200
+
+            producto = catalogo_productos.get(id_prod, {})
+
+            # ==========================================
+            # RAMAS DE BOTONES (Buscan por palabra clave)
+            # ==========================================
+
+            # RAMA: VIDEO
+            if "video" in accion:
+                link_video = producto.get("link_video", "")
+                if link_video:
+                    enviar_video(numero_cliente, link_video, "Video demo")
+
+                enviar_mensaje_botones(numero_cliente, "¿Qué deseas hacer a continuación?", [
+                    (f"pdf_{id_prod}", "Ver PDF demo"),
+                    (f"comprar_{id_prod}", "Comprar"),
+                    ("menu_principal", "Menú principal")
+                ])
+                return "EVENT_RECEIVED", 200
+
+            # RAMA: PDF
+            elif "pdf" in accion:
+                link_pdf = producto.get("link_pdf", "")
+                if link_pdf:
+                    enviar_documento(numero_cliente, link_pdf, f"Demo_{id_prod}.pdf")
+
+                enviar_mensaje_botones(numero_cliente, "¿Qué deseas hacer a continuación?", [
+                    (f"video_{id_prod}", "Ver video demo"),
+                    (f"comprar_{id_prod}", "Comprar"),
+                    ("menu_principal", "Menú principal")
+                ])
+                return "EVENT_RECEIVED", 200
+
+            # RAMA: COMPRAR
+            elif "comprar" in accion:
+                enviar_mensaje_plantilla(
+                    numero_cliente,
+                    "plantilla_compra_universal",
+                    titulo=producto.get("titulo", "el producto"),
+                    precio_normal=str(producto.get("precio_normal", ""))
                 )
-                if not es_valido:
-                    app.logger.warning(
-                        "[WEBHOOK] payload button no reconocido ignorado: %s (numero=%s)",
-                        candidato, numero_cliente
-                    )
-                    return jsonify({"status": "ignored"}), 200
-            texto_recibido = candidato
+                return "EVENT_RECEIVED", 200
+
+            # RAMA: MENÚ
+            elif "men" in accion:
+                enviar_mensaje_plantilla(numero_cliente, "plantilla_menu_general")
+                return "EVENT_RECEIVED", 200
 
         # Extraer adjunto (comprobante de pago)
         tipo_media, media_id, nombre_archivo = extraer_media_mensaje(mensaje_info)
