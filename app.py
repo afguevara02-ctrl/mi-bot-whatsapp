@@ -2211,18 +2211,28 @@ def webhook():
             if tipo_mensaje == "interactive":
                 interactivo = mensaje_info.get("interactive", {}) or {}
                 if interactivo.get("type") == "button_reply":
-                    accion = (interactivo.get("button_reply", {}) or {}).get("title", "").lower()
+                    accion = (interactivo.get("button_reply", {}) or {}).get("title", "")
                 elif interactivo.get("type") == "list_reply":
-                    accion = (interactivo.get("list_reply", {}) or {}).get("title", "").lower()
+                    accion = (interactivo.get("list_reply", {}) or {}).get("title", "")
             elif tipo_mensaje == "button":
-                accion = (mensaje_info.get("button", {}) or {}).get("text", "").lower()
+                accion = (mensaje_info.get("button", {}) or {}).get("text", "")
+
+            accion = normalizar_texto(accion)
+            tokens_accion = set(accion.replace("-", " ").replace("/", " ").split())
+
+            if not accion:
+                app.logger.info(
+                    "[WEBHOOK] No se pudo extraer accion de boton/interactivo (numero=%s)",
+                    numero_cliente
+                )
+                return "EVENT_RECEIVED", 200
 
             # 2. RECUPERAR EL PRODUCTO DE LA MEMORIA DEL BOT
             estado_actual = estados_clientes.setdefault(numero_cliente, {})
             id_prod = estado_actual.get("catalogo_activo")
 
             # Si presionan pagar, no necesitamos catalogo activo, solo procesar el pago
-            if "nequi" in accion or "daviplata" in accion:
+            if "nequi" in tokens_accion or "daviplata" in tokens_accion:
                 metodo = "nequi" if "nequi" in accion else "daviplata"
                 estados_clientes[numero_cliente]["metodo_pago"] = metodo
                 estados_clientes[numero_cliente]["esperando_comprobante"] = True
@@ -2242,7 +2252,7 @@ def webhook():
             # ==========================================
 
             # RAMA: VIDEO
-            if "video" in accion:
+            if "video" in tokens_accion:
                 link_video = producto.get("link_video", "")
                 if link_video:
                     enviar_video(numero_cliente, link_video, "Video demo")
@@ -2255,7 +2265,7 @@ def webhook():
                 return "EVENT_RECEIVED", 200
 
             # RAMA: PDF
-            elif "pdf" in accion:
+            elif "pdf" in tokens_accion:
                 link_pdf = producto.get("link_pdf", "")
                 if link_pdf:
                     enviar_documento(numero_cliente, link_pdf, f"Demo_{id_prod}.pdf")
@@ -2268,7 +2278,7 @@ def webhook():
                 return "EVENT_RECEIVED", 200
 
             # RAMA: COMPRAR
-            elif "comprar" in accion:
+            elif "comprar" in tokens_accion:
                 enviar_mensaje_plantilla(
                     numero_cliente,
                     "plantilla_compra_universal",
@@ -2278,7 +2288,7 @@ def webhook():
                 return "EVENT_RECEIVED", 200
 
             # RAMA: MENÚ
-            elif "men" in accion:
+            elif "menu" in tokens_accion:
                 enviar_mensaje_plantilla(numero_cliente, "plantilla_menu_general")
                 return "EVENT_RECEIVED", 200
 
