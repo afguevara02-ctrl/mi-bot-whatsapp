@@ -2233,7 +2233,7 @@ def webhook():
 
             # Si presionan pagar, no necesitamos catalogo activo, solo procesar el pago
             if "nequi" in tokens_accion or "daviplata" in tokens_accion:
-                metodo = "nequi" if "nequi" in accion else "daviplata"
+                metodo = "nequi" if "nequi" in tokens_accion else "daviplata"
                 estados_clientes[numero_cliente]["metodo_pago"] = metodo
                 estados_clientes[numero_cliente]["esperando_comprobante"] = True
                 guardar_estado_runtime()
@@ -2242,6 +2242,10 @@ def webhook():
 
             # Si no hay producto activo y no están pagando, enviamos al menú
             if not id_prod:
+                app.logger.info(
+                    "[WEBHOOK] Sin catalogo_activo para accion de boton/interactivo (numero=%s); enviando menu.",
+                    numero_cliente
+                )
                 enviar_mensaje_plantilla(numero_cliente, "plantilla_menu_general")
                 return "EVENT_RECEIVED", 200
 
